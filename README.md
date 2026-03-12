@@ -220,6 +220,6 @@ Principles applied:
 
 ## Additional information
 
-- **Issues**: [GitHub Issues](https://github.com/user/adaptive_shell/issues)
+- **Issues**: [GitHub Issues](https://github.com/RakeshGowdaR/adaptive_shell/issues)
 - **Contributing**: PRs welcome. Please open an issue first for major changes.
 - **License**: BSD-3-Clause
