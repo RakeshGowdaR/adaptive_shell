@@ -166,7 +166,7 @@ class AdaptiveShell extends StatelessWidget {
   /// Returns [LayoutMode.compact] if no ancestor [AdaptiveShell] exists.
   static LayoutMode of(BuildContext context) {
     final scope =
-    context.dependOnInheritedWidgetOfExactType<AdaptiveShellScope>();
+        context.dependOnInheritedWidgetOfExactType<AdaptiveShellScope>();
     return scope?.layoutMode ?? LayoutMode.compact;
   }
 
@@ -186,12 +186,12 @@ class AdaptiveShell extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(breakpoints.isValid, 'Invalid breakpoints configuration.');
     assert(
-    destinations.length >= 2,
-    'At least 2 destinations are required.',
+      destinations.length >= 2,
+      'At least 2 destinations are required.',
     );
     assert(
-    selectedIndex >= 0 && selectedIndex < destinations.length,
-    'selectedIndex ($selectedIndex) out of range [0, ${destinations.length}).',
+      selectedIndex >= 0 && selectedIndex < destinations.length,
+      'selectedIndex ($selectedIndex) out of range [0, ${destinations.length}).',
     );
 
     return LayoutBuilder(
@@ -289,10 +289,10 @@ class _WideLayout extends StatelessWidget {
             leading: shell.railLeading,
             trailing: shell.railTrailing,
             backgroundColor: shell.railBackgroundColor,
-            labelType:
-            extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-            destinations:
-            shell.destinations.map(_toRailDestination).toList(),
+            labelType: extended
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
+            destinations: shell.destinations.map(_toRailDestination).toList(),
           ),
 
           const VerticalDivider(width: 1, thickness: 1),

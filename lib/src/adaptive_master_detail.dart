@@ -10,16 +10,16 @@ import 'layout_mode.dart';
 /// [item] is the data item. [isSelected] is `true` when this item
 /// is currently shown in the detail pane (on medium/expanded layouts).
 typedef MasterItemBuilder<T> = Widget Function(
-    BuildContext context,
-    T item,
-    bool isSelected,
-    );
+  BuildContext context,
+  T item,
+  bool isSelected,
+);
 
 /// Signature for building the detail view for a selected item.
 typedef DetailBuilder<T> = Widget Function(
-    BuildContext context,
-    T item,
-    );
+  BuildContext context,
+  T item,
+);
 
 /// A zero-boilerplate master-detail widget.
 ///
@@ -142,11 +142,11 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
   /// When provided, this replaces the default [ListView]. You must
   /// call [onItemTap] when an item is tapped.
   final Widget Function(
-      BuildContext context,
-      List<T> items,
-      T? selectedItem,
-      ValueChanged<T> onItemTap,
-      )? masterBuilder;
+    BuildContext context,
+    List<T> items,
+    T? selectedItem,
+    ValueChanged<T> onItemTap,
+  )? masterBuilder;
 
   /// Placeholder shown when no item is selected on large screens.
   final Widget? emptyDetailPlaceholder;
@@ -189,10 +189,10 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
   /// By default, the detail view is wrapped in a plain [Scaffold] with
   /// an [AppBar] and back button.
   final Widget Function(
-      BuildContext context,
-      T item,
-      Widget detailWidget,
-      )? compactDetailScaffoldBuilder;
+    BuildContext context,
+    T item,
+    Widget detailWidget,
+  )? compactDetailScaffoldBuilder;
 
   @override
   State<AdaptiveMasterDetail<T>> createState() =>
