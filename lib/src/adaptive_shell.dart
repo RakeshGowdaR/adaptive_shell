@@ -81,6 +81,7 @@ class AdaptiveShell extends StatelessWidget {
     required this.onDestinationSelected,
     this.breakpoints = const AdaptiveBreakpoints(),
     this.showPaneDivider = true,
+    this.detailAlignment = Alignment.topLeft,
     this.railLeading,
     this.railTrailing,
     this.railBackgroundColor,
@@ -121,6 +122,20 @@ class AdaptiveShell extends StatelessWidget {
   /// Whether to show a [VerticalDivider] between the two panes.
   final bool showPaneDivider;
 
+  /// Alignment of the detail pane ([child2]) content.
+  ///
+  /// Defaults to [Alignment.topLeft] so content starts from the top.
+  /// Set to [Alignment.center] if you want centered detail content
+  /// (e.g., a placeholder or media viewer).
+  ///
+  /// ```dart
+  /// AdaptiveShell(
+  ///   detailAlignment: Alignment.topCenter,
+  ///   // ...
+  /// )
+  /// ```
+  final AlignmentGeometry detailAlignment;
+
   /// Optional widget above rail destinations (e.g., a logo or [FloatingActionButton]).
   final Widget? railLeading;
 
@@ -151,7 +166,7 @@ class AdaptiveShell extends StatelessWidget {
   /// Returns [LayoutMode.compact] if no ancestor [AdaptiveShell] exists.
   static LayoutMode of(BuildContext context) {
     final scope =
-        context.dependOnInheritedWidgetOfExactType<AdaptiveShellScope>();
+    context.dependOnInheritedWidgetOfExactType<AdaptiveShellScope>();
     return scope?.layoutMode ?? LayoutMode.compact;
   }
 
@@ -171,12 +186,12 @@ class AdaptiveShell extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(breakpoints.isValid, 'Invalid breakpoints configuration.');
     assert(
-      destinations.length >= 2,
-      'At least 2 destinations are required.',
+    destinations.length >= 2,
+    'At least 2 destinations are required.',
     );
     assert(
-      selectedIndex >= 0 && selectedIndex < destinations.length,
-      'selectedIndex ($selectedIndex) out of range [0, ${destinations.length}).',
+    selectedIndex >= 0 && selectedIndex < destinations.length,
+    'selectedIndex ($selectedIndex) out of range [0, ${destinations.length}).',
     );
 
     return LayoutBuilder(
@@ -275,9 +290,9 @@ class _WideLayout extends StatelessWidget {
             trailing: shell.railTrailing,
             backgroundColor: shell.railBackgroundColor,
             labelType:
-                extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+            extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
             destinations:
-                shell.destinations.map(_toRailDestination).toList(),
+            shell.destinations.map(_toRailDestination).toList(),
           ),
 
           const VerticalDivider(width: 1, thickness: 1),
@@ -298,11 +313,23 @@ class _WideLayout extends StatelessWidget {
           // ─── child2 or placeholder (detail pane) ───
           if (hasChild2)
             Expanded(
-              child: AnimatedSwitcher(
-                duration: shell.transitionDuration,
-                child: KeyedSubtree(
-                  key: ValueKey<int>(shell.child2.hashCode),
-                  child: shell.child2!,
+              child: Align(
+                alignment: shell.detailAlignment,
+                child: AnimatedSwitcher(
+                  duration: shell.transitionDuration,
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: shell.detailAlignment,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(shell.child2.hashCode),
+                    child: shell.child2!,
+                  ),
                 ),
               ),
             )
