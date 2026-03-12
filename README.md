@@ -11,6 +11,16 @@ Building adaptive layouts in Flutter typically requires hundreds of lines of boi
 
 `flutter_adaptive_scaffold` (the official package) has been **discontinued**. `adaptive_shell` is a simpler, actively-maintained alternative with a more intuitive API.
 
+## Screenshots
+
+### Compact layout (Mobile)
+
+![Compact layout](screenshots/compact.png)
+
+### Expanded layout (Tablet/Desktop)
+
+![Expanded layout](screenshots/expanded.png)
+
 ## Features
 
 - **Single wrapper widget** — just provide `child1` + `child2`
