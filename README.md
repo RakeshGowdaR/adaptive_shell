@@ -27,6 +27,9 @@ Building adaptive layouts in Flutter typically requires hundreds of lines of boi
 - **Automatic navigation** — `NavigationBar` on mobile, `NavigationRail` on tablet/web
 - **Master-detail split** — `child1` always visible; `child2` shown beside it on larger screens
 - **Layout awareness** — `AdaptiveShell.of(context)` returns the current mode so descendants can decide between pushing routes or updating state
+- **Context extensions** — `context.isCompact`, `context.isTwoPane`, `context.adaptiveWidth()` and more for clean, readable code
+- **Layout change callback** — `onLayoutModeChanged` fires when the layout transitions (e.g. compact → medium), useful for analytics or state management
+- **Debug overlay** — `debugShowLayoutMode: true` shows a live overlay with current mode and breakpoints during development
 - **Material 3 compliant** — follows M3 window size classes (compact / medium / expanded)
 - **Badge support** — navigation destinations support notification counts
 - **All platforms** — Android, iOS, web, macOS, Windows, Linux
@@ -52,7 +55,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  adaptive_shell: ^1.0.0
+  adaptive_shell: ^1.1.0
 ```
 
 ## Usage
@@ -121,6 +124,63 @@ if (AdaptiveShell.isTwoPane(context)) {
 }
 ```
 
+### Context extensions (v1.1.0)
+
+Quick, readable access to layout information anywhere in the widget tree:
+
+```dart
+// Boolean checks
+if (context.isCompact) { /* mobile */ }
+if (context.isMedium) { /* tablet */ }
+if (context.isExpanded) { /* desktop */ }
+
+// Semantic aliases
+if (context.isMobile) { /* same as isCompact */ }
+if (context.isTablet) { /* medium or expanded */ }
+if (context.isDesktop) { /* same as isExpanded */ }
+if (context.isTwoPane) { /* two panes visible */ }
+
+// Adaptive sizing
+final width  = context.adaptiveWidth(300);     // 300 / 360 / 450
+final height = context.adaptiveHeight(200);    // 200 / 230 / 260
+final size   = context.adaptiveFontSize(16);   // 16 / 17.6 / 19.2
+final space  = context.adaptiveSpacing(8);     // 8 / 10 / 12
+final pad    = context.adaptivePadding();      // 16 / 24 / 32
+
+// Custom padding thresholds
+final pad2 = context.adaptivePadding(compact: 12, medium: 20, expanded: 28);
+```
+
+> **Note:** If you already define any of these names as `BuildContext` extensions in your own code, Dart will raise an ambiguity error. You can resolve it with a hide import:
+> ```dart
+> import 'package:adaptive_shell/adaptive_shell.dart' hide AdaptiveContextExtensions;
+> ```
+
+### Layout change callback (v1.1.0)
+
+React to layout mode transitions for analytics, state resets, or logging:
+
+```dart
+AdaptiveShell(
+  onLayoutModeChanged: (oldMode, newMode) {
+    debugPrint('Layout: $oldMode → $newMode');
+    analytics.logEvent('layout_change', {'mode': newMode.name});
+  },
+  // ...
+)
+```
+
+### Debug overlay (v1.1.0)
+
+Show a live overlay with the current mode, screen width, and breakpoint thresholds:
+
+```dart
+AdaptiveShell(
+  debugShowLayoutMode: true, // remove before shipping
+  // ...
+)
+```
+
 ### Custom breakpoints
 
 ```dart
@@ -176,6 +236,46 @@ AdaptiveShell(
 | `transitionDuration` | `Duration` | 300ms | Pane animation speed |
 | `floatingActionButton` | `Widget?` | `null` | FAB widget |
 | `emptyDetailPlaceholder` | `Widget?` | `null` | Shown when child2 is null on large screens |
+| `onLayoutModeChanged` | `void Function(LayoutMode, LayoutMode)?` | `null` | Called when layout mode transitions |
+| `debugShowLayoutMode` | `bool` | `false` | Shows a live debug overlay in the top-right corner |
+
+### AdaptiveMasterDetail
+
+Zero-boilerplate alternative. Inherits all `AdaptiveShell` properties above, plus:
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `items` | `List<T>` | required | Data items for the master list |
+| `itemBuilder` | `MasterItemBuilder<T>` | required | Builds each list item |
+| `detailBuilder` | `DetailBuilder<T>` | required | Builds the detail view |
+| `selectedNavIndex` | `int` | required | Currently selected nav index |
+| `onNavSelected` | `ValueChanged<int>` | required | Nav tap callback |
+| `itemKey` | `Object Function(T)?` | `null` | Unique key per item (defaults to hashCode) |
+| `initialSelection` | `T Function(List<T>)?` | `null` | Pre-selects an item on first build |
+| `detailAppBarTitle` | `String Function(T)?` | `null` | Title for mobile detail AppBar |
+| `masterHeader` | `Widget?` | `null` | Widget above the master list (e.g. search bar) |
+| `masterBuilder` | `Widget Function(...)?` | `null` | Fully custom master pane builder |
+| `compactDetailScaffoldBuilder` | `Widget Function(...)?` | `null` | Custom scaffold for mobile detail push |
+
+### AdaptiveContextExtensions
+
+Extensions on `BuildContext` for concise layout-aware code. Require a `BuildContext` inside an `AdaptiveShell` subtree.
+
+| Extension | Returns | Description |
+|---|---|---|
+| `context.screenType` | `LayoutMode` | Current layout mode |
+| `context.isCompact` | `bool` | `true` on mobile (< compact bp) |
+| `context.isMedium` | `bool` | `true` on tablet (compact–expanded bp) |
+| `context.isExpanded` | `bool` | `true` on desktop (≥ expanded bp) |
+| `context.isMobile` | `bool` | Alias for `isCompact` |
+| `context.isTablet` | `bool` | `true` if medium or expanded |
+| `context.isDesktop` | `bool` | Alias for `isExpanded` |
+| `context.isTwoPane` | `bool` | `true` if two panes are visible |
+| `context.adaptiveWidth(base)` | `double` | `base` × 1.0 / 1.2 / 1.5 |
+| `context.adaptiveHeight(base)` | `double` | `base` × 1.0 / 1.15 / 1.3 |
+| `context.adaptiveFontSize(base)` | `double` | `base` × 1.0 / 1.1 / 1.2 |
+| `context.adaptiveSpacing(base)` | `double` | `base` × 1.0 / 1.25 / 1.5 |
+| `context.adaptivePadding(...)` | `EdgeInsets` | 16 / 24 / 32 (customisable) |
 
 ### AdaptiveBreakpoints
 

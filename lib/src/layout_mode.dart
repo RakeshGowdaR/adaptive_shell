@@ -12,12 +12,12 @@ enum LayoutMode {
   /// Two-pane layout with [NavigationRail] (icon-only).
   ///
   /// Typically small tablets or foldables, width 600–1200dp.
-  /// [child2] is shown beside [child1].
+  /// `child2` is shown beside `child1`.
   medium,
 
   /// Two-pane layout with [NavigationRail] (extended labels).
   ///
   /// Typically large tablets, desktops, or web, width > 1200dp.
-  /// [child2] is shown beside [child1] with more breathing room.
+  /// `child2` is shown beside `child1` with more breathing room.
   expanded,
 }

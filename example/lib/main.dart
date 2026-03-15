@@ -111,7 +111,10 @@ const _destinations = [
 
 // ══════════════════════════════════════════════════════════════
 // AdaptiveMasterDetail<T> — Zero boilerplate (~30 lines)
-// No manual state, no navigation logic, no layout checks.
+// Showcases v1.1.0 features:
+//  • onLayoutModeChanged  — snackbar on every layout transition
+//  • debugShowLayoutMode  — toggleable dev overlay (top-right)
+//  • context extensions   — adaptive padding/font sizes in tiles
 // ══════════════════════════════════════════════════════════════
 
 class ZeroBoilerplateExample extends StatefulWidget {
@@ -124,26 +127,64 @@ class ZeroBoilerplateExample extends StatefulWidget {
 class _ZeroBoilerplateExampleState extends State<ZeroBoilerplateExample> {
   int _navIndex = 0;
 
+  /// v1.1.0 — toggle the debug overlay at runtime.
+  bool _showDebugOverlay = false;
+
+  /// v1.1.0 — called whenever the layout mode transitions.
+  void _onLayoutModeChanged(LayoutMode oldMode, LayoutMode newMode) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Layout: ${oldMode.name} → ${newMode.name}'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AdaptiveMasterDetail<Patient>(
-      items: _patients,
-      destinations: _destinations,
-      selectedNavIndex: _navIndex,
-      onNavSelected: (i) => setState(() => _navIndex = i),
-      breakpoints: AdaptiveBreakpoints.tabletFirst,
+    return Scaffold(
+      // Floating toggle button for the debug overlay (dev use only).
+      floatingActionButton: FloatingActionButton.small(
+        heroTag: 'debug_toggle',
+        tooltip: 'Toggle debug overlay',
+        onPressed: () => setState(() => _showDebugOverlay = !_showDebugOverlay),
+        child: Icon(
+          _showDebugOverlay ? Icons.bug_report : Icons.bug_report_outlined,
+        ),
+      ),
+      body: AdaptiveMasterDetail<Patient>(
+        items: _patients,
+        destinations: _destinations,
+        selectedNavIndex: _navIndex,
+        onNavSelected: (i) => setState(() => _navIndex = i),
+        breakpoints: AdaptiveBreakpoints.tabletFirst,
 
-      // Provide two builders — everything else is handled.
-      itemBuilder: (context, patient, selected) =>
-          PatientTile(patient: patient, selected: selected),
-      detailBuilder: (context, patient) => PatientDetail(patient: patient),
+        // ── v1.1.0: layout change callback ──────────────────────
+        // Fires whenever the layout transitions between compact /
+        // medium / expanded.  Useful for analytics or state resets.
+        onLayoutModeChanged: _onLayoutModeChanged,
 
-      // Optional:
-      itemKey: (p) => p.id,
-      initialSelection: (items) => items.first,
-      detailAppBarTitle: (p) => p.name,
-      masterHeader: const SearchHeader(),
-      emptyDetailPlaceholder: const EmptyPlaceholder(),
+        // ── v1.1.0: debug overlay ────────────────────────────────
+        // Shows current mode, screen width, and breakpoints in the
+        // top-right corner.  Toggle with the FAB above.
+        debugShowLayoutMode: _showDebugOverlay,
+
+        // Provide two builders — everything else is handled.
+        itemBuilder: (context, patient, selected) =>
+            PatientTile(patient: patient, selected: selected),
+        detailBuilder: (context, patient) => PatientDetail(patient: patient),
+
+        // Optional:
+        itemKey: (p) => p.id,
+        initialSelection: (items) => items.first,
+        detailAppBarTitle: (p) => p.name,
+        masterHeader: const SearchHeader(),
+        emptyDetailPlaceholder: const EmptyPlaceholder(),
+      ),
     );
   }
 }
@@ -155,8 +196,9 @@ class SearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v1.1.0: context.adaptivePadding() scales 16 → 20 → 24 across breakpoints.
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: context.adaptivePadding(compact: 12, medium: 16, expanded: 20),
       child: TextField(
         decoration: InputDecoration(
           hintText: 'Search patient...',
@@ -182,10 +224,16 @@ class EmptyPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.touch_app_outlined, size: 48, color: Colors.grey.shade400),
+      Icon(Icons.touch_app_outlined,
+          // v1.1.0: context.adaptiveWidth scales icon size responsively.
+          size: context.adaptiveWidth(48),
+          color: Colors.grey.shade400),
       const SizedBox(height: 12),
       Text('Select a patient',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+          style: TextStyle(
+              color: Colors.grey.shade500,
+              // v1.1.0: context.adaptiveFontSize scales 16 → 17.6 → 19.2.
+              fontSize: context.adaptiveFontSize(16))),
     ]);
   }
 }
@@ -208,6 +256,10 @@ class PatientTile extends StatelessWidget {
             : BorderSide.none,
       ),
       child: ListTile(
+        // v1.1.0: adaptive content padding via context extension.
+        contentPadding: context.adaptivePadding(
+            compact: 8, medium: 12, expanded: 16)
+            .copyWith(top: 0, bottom: 0),
         leading: CircleAvatar(
           backgroundColor: patient.color.withAlpha(25),
           foregroundColor: patient.color,
@@ -215,7 +267,10 @@ class PatientTile extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         title: Text(patient.name,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                // v1.1.0: font scales up on larger screens.
+                fontSize: context.adaptiveFontSize(14))),
         subtitle: Text('${patient.gender} | ${patient.age} | ${patient.bed}'),
         trailing: selected
             ? Container(
@@ -237,8 +292,9 @@ class PatientDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v1.1.0: adaptive padding scales 16 → 24 → 32 across breakpoints.
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: context.adaptivePadding(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           CircleAvatar(
@@ -254,15 +310,16 @@ class PatientDetail extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(patient.name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        // v1.1.0: title scales responsively.
+                        fontSize: context.adaptiveFontSize(20))),
                 Text('${patient.gender} | ${patient.age} | ${patient.bed}',
                     style: Theme.of(context).textTheme.bodySmall),
               ])),
         ]),
-        const SizedBox(height: 24),
+        // v1.1.0: adaptive spacing between sections.
+        SizedBox(height: context.adaptiveSpacing(24)),
         _section(
             context,
             'VITALS',
@@ -277,7 +334,7 @@ class PatientDetail extends StatelessWidget {
                 _V(l: 'SpO2', v: '98', u: '%')
               ],
             )),
-        const SizedBox(height: 12),
+        SizedBox(height: context.adaptiveSpacing(12)),
         _section(
             context,
             'TASKS',

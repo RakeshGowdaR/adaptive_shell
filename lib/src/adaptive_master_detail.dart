@@ -29,7 +29,7 @@ typedef DetailBuilder<T> = Widget Function(
 /// responsive layout switching automatically.
 ///
 /// This is a convenience wrapper over [AdaptiveShell]. For full control
-/// over both panes, use [AdaptiveShell] directly with [child1]/[child2].
+/// over both panes, use [AdaptiveShell] directly with `child1`/`child2`.
 ///
 /// ## Example
 ///
@@ -91,6 +91,8 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.compactDetailScaffoldBuilder,
+    this.onLayoutModeChanged,
+    this.debugShowLayoutMode = false,
   });
 
   /// The data items displayed in the master list.
@@ -98,7 +100,7 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
 
   /// Builds each item in the master list.
   ///
-  /// [isSelected] is `true` when this item is currently shown in the
+  /// `isSelected` is `true` when this item is currently shown in the
   /// detail pane. Use this to highlight the active item on tablet/web.
   ///
   /// You do NOT need to handle `onTap` — the widget wraps your result
@@ -140,7 +142,7 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
   /// Optional custom builder for the entire master pane.
   ///
   /// When provided, this replaces the default [ListView]. You must
-  /// call [onItemTap] when an item is tapped.
+  /// call the provided `onItemTap` callback when an item is tapped.
   final Widget Function(
     BuildContext context,
     List<T> items,
@@ -193,6 +195,19 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
     T item,
     Widget detailWidget,
   )? compactDetailScaffoldBuilder;
+
+  /// Called when the layout mode transitions (e.g. compact → medium).
+  ///
+  /// Forwarded directly to the internal [AdaptiveShell]. Useful for
+  /// analytics, state resets, or showing a notification.
+  final void Function(LayoutMode oldMode, LayoutMode newMode)?
+      onLayoutModeChanged;
+
+  /// Shows a debug overlay with current layout mode and breakpoints.
+  ///
+  /// Forwarded directly to the internal [AdaptiveShell].
+  /// Set to `true` during development; remove before shipping.
+  final bool debugShowLayoutMode;
 
   @override
   State<AdaptiveMasterDetail<T>> createState() =>
@@ -314,6 +329,8 @@ class _AdaptiveMasterDetailState<T> extends State<AdaptiveMasterDetail<T>> {
           floatingActionButton: widget.floatingActionButton,
           floatingActionButtonLocation: widget.floatingActionButtonLocation,
           emptyDetailPlaceholder: widget.emptyDetailPlaceholder,
+          onLayoutModeChanged: widget.onLayoutModeChanged,
+          debugShowLayoutMode: widget.debugShowLayoutMode,
           child1: _buildMasterList(),
           child2: detailPane,
         );

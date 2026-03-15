@@ -1,9 +1,6 @@
 name: adaptive_shell
-description: "An adaptive master-detail layout wrapper for Flutter. Automatically switches
-  between BottomNavigationBar (mobile) and NavigationRail (tablet/web/desktop),
-  showing child1 always and child2 beside it on larger screens. Follows
-  Material 3 window size classes and Flutter adaptive design best practices"
-version: 1.0.0+1
+description: "Adaptive master-detail layout for Flutter — automatically switches between compact and two-pane layouts across mobile, tablet, and desktop."
+version: 1.1.0
 repository: https://github.com/RakeshGowdaR/adaptive_shell
 issue_tracker: https://github.com/RakeshGowdaR/adaptive_shell/issues
 homepage: https://github.com/RakeshGowdaR/adaptive_shell
@@ -32,7 +29,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^5.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

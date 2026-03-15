@@ -70,7 +70,15 @@ class AdaptiveShellScope extends InheritedWidget {
 ///   ),
 /// )
 /// ```
-class AdaptiveShell extends StatelessWidget {
+
+class AdaptiveShell extends StatefulWidget {
+  /// Called when the layout mode changes (e.g., compact → medium).
+  final void Function(LayoutMode oldMode, LayoutMode newMode)?
+      onLayoutModeChanged;
+
+  /// Shows a debug overlay with current layout mode info.
+  final bool debugShowLayoutMode;
+
   /// Creates an adaptive shell.
   const AdaptiveShell({
     super.key,
@@ -90,6 +98,8 @@ class AdaptiveShell extends StatelessWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.emptyDetailPlaceholder,
+    this.onLayoutModeChanged,
+    this.debugShowLayoutMode = false,
   });
 
   /// The primary content widget, always visible.
@@ -176,31 +186,71 @@ class AdaptiveShell extends StatelessWidget {
     return mode == LayoutMode.medium || mode == LayoutMode.expanded;
   }
 
+  @override
+  State<AdaptiveShell> createState() => _AdaptiveShellState();
+}
+
+class _AdaptiveShellState extends State<AdaptiveShell> {
+  // Initialize to compact so that a freshly-created state will fire the
+  // callback when the widget is first built at a larger breakpoint.
+  LayoutMode _previousMode = LayoutMode.compact;
+
   LayoutMode _computeMode(double width) {
-    if (width >= breakpoints.expanded) return LayoutMode.expanded;
-    if (width >= breakpoints.compact) return LayoutMode.medium;
+    if (width >= widget.breakpoints.expanded) return LayoutMode.expanded;
+    if (width >= widget.breakpoints.compact) return LayoutMode.medium;
     return LayoutMode.compact;
+  }
+
+  void _notifyIfModeChanged(LayoutMode newMode) {
+    if (_previousMode != newMode && widget.onLayoutModeChanged != null) {
+      final oldMode = _previousMode;
+      _previousMode = newMode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onLayoutModeChanged!(oldMode, newMode);
+      });
+    } else {
+      _previousMode = newMode;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    assert(breakpoints.isValid, 'Invalid breakpoints configuration.');
+    assert(widget.breakpoints.isValid, 'Invalid breakpoints configuration.');
     assert(
-      destinations.length >= 2,
+      widget.destinations.length >= 2,
       'At least 2 destinations are required.',
     );
     assert(
-      selectedIndex >= 0 && selectedIndex < destinations.length,
-      'selectedIndex ($selectedIndex) out of range [0, ${destinations.length}).',
+      widget.selectedIndex >= 0 &&
+          widget.selectedIndex < widget.destinations.length,
+      'selectedIndex (${widget.selectedIndex}) out of range [0, ${widget.destinations.length}).',
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final mode = _computeMode(constraints.maxWidth);
-        return AdaptiveShellScope(
+        _notifyIfModeChanged(mode);
+
+        Widget child = AdaptiveShellScope(
           layoutMode: mode,
           child: _buildLayout(context, mode, constraints.maxWidth),
         );
+
+        // Add debug overlay if enabled
+        if (widget.debugShowLayoutMode) {
+          child = Stack(
+            children: [
+              child,
+              _DebugOverlay(
+                mode: mode,
+                screenWidth: constraints.maxWidth,
+                breakpoints: widget.breakpoints,
+              ),
+            ],
+          );
+        }
+
+        return child;
       },
     );
   }
@@ -208,11 +258,11 @@ class AdaptiveShell extends StatelessWidget {
   Widget _buildLayout(BuildContext context, LayoutMode mode, double width) {
     switch (mode) {
       case LayoutMode.compact:
-        return _CompactLayout(shell: this);
+        return _CompactLayout(shell: widget);
       case LayoutMode.medium:
-        return _WideLayout(shell: this, extended: false, totalWidth: width);
+        return _WideLayout(shell: widget, extended: false, totalWidth: width);
       case LayoutMode.expanded:
-        return _WideLayout(shell: this, extended: true, totalWidth: width);
+        return _WideLayout(shell: widget, extended: true, totalWidth: width);
     }
   }
 }
@@ -362,5 +412,76 @@ class _WideLayout extends StatelessWidget {
       selectedIcon: selectedIcon,
       label: Text(dest.label),
     );
+  }
+}
+
+/// Debug overlay showing current layout mode and breakpoints.
+class _DebugOverlay extends StatelessWidget {
+  const _DebugOverlay({
+    required this.mode,
+    required this.screenWidth,
+    required this.breakpoints,
+  });
+
+  final LayoutMode mode;
+  final double screenWidth;
+  final AdaptiveBreakpoints breakpoints;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 8,
+      right: 8,
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.black87,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _getModeIcon(mode) + mode.name.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Width: ${screenWidth.toInt()}dp',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+              Text(
+                'Compact: < ${breakpoints.compact.toInt()}',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+              Text(
+                'Medium: ${breakpoints.compact.toInt()}-${breakpoints.expanded.toInt()}',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+              Text(
+                'Expanded: > ${breakpoints.expanded.toInt()}',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getModeIcon(LayoutMode mode) {
+    switch (mode) {
+      case LayoutMode.compact:
+        return '📱 ';
+      case LayoutMode.medium:
+        return '📟 ';
+      case LayoutMode.expanded:
+        return '🖥️ ';
+    }
   }
 }
