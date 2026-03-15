@@ -13,7 +13,7 @@ topics:
   - ui
 
 screenshots:
-  - description: 'Compact mode (mobile) with BottomNavigationBar'
+  - description: 'Compact mode (mobile) with NavigationBar at the bottom'
     path: screenshots/compact.png
   - description: 'Expanded mode (tablet) with NavigationRail and master-detail'
     path: screenshots/expanded.png

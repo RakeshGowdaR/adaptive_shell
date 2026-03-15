@@ -1,9 +1,12 @@
 /// Material 3 window size class breakpoints for [AdaptiveShell].
 ///
-/// Determines when the layout switches between:
-/// - **compact** (< [compact] dp): single-pane, bottom nav
-/// - **medium** ([compact] – [expanded] dp): nav rail, two-pane
-/// - **expanded** (>= [expanded] dp): extended nav rail, two-pane
+/// Two fields drive the actual layout switching:
+/// - **[compact]** — below this, single-pane with bottom nav
+/// - **[expanded]** — at or above this, extended rail with labels
+///
+/// Everything between [compact] and [expanded] is the medium range:
+/// two-pane layout with an icon-only rail. The [medium] field is stored
+/// for reference and validation but does not trigger a layout change.
 ///
 /// Based on the [Material 3 window size classes](https://m3.material.io/foundations/layout/applying-layout/window-size-classes).
 ///
@@ -17,7 +20,6 @@
 /// ```dart
 /// const AdaptiveBreakpoints(
 ///   compact: 500,
-///   medium: 700,
 ///   expanded: 960,
 ///   masterRatio: 0.4,
 /// )
@@ -39,10 +41,15 @@ class AdaptiveBreakpoints {
   /// Defaults to 600 (Material 3 compact class).
   final double compact;
 
-  /// Width threshold for medium mode. Between [compact] and [expanded].
+  /// Stored for reference — the Material 3 medium window size class boundary.
   ///
-  /// At this width, a [NavigationRail] (icons only) is shown
-  /// and two-pane layout is enabled.
+  /// **This field does not affect the layout switching logic.** The actual
+  /// transitions are:
+  /// - two-pane layout starts at [compact] (where `NavigationRail` appears)
+  /// - extended rail with labels starts at [expanded]
+  ///
+  /// [medium] is kept here so callers can store the full M3 spec and use
+  /// it in custom breakpoint validation, analytics, or their own UI logic.
   ///
   /// Defaults to 840 (Material 3 medium class).
   final double medium;

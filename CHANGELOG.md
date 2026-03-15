@@ -2,46 +2,92 @@
 
 ### ✨ New Features
 
-#### Context Extensions
+#### AdaptiveBuilder 🏗️
+A standalone responsive builder widget that works **without** an `AdaptiveShell` ancestor — it uses `LayoutBuilder` and `AdaptiveBreakpoints` directly:
+
+```dart
+AdaptiveBuilder(
+  compact:  (context) => MobileWidget(),
+  medium:   (context) => TabletWidget(),   // optional, falls back to compact
+  expanded: (context) => DesktopWidget(),  // optional, falls back to medium
+  breakpoints: AdaptiveBreakpoints.tabletFirst, // customisable
+)
+```
+
+#### Keyboard Shortcuts ⌨️
+Map any `ShortcutActivator` (e.g. `SingleActivator`, `LogicalKeySet`) to a navigation destination index. Only active on medium/expanded layouts (tablet / desktop):
+
+```dart
+AdaptiveShell(
+  keyboardShortcuts: {
+    SingleActivator(LogicalKeyboardKey.digit1, control: true): 0,
+    SingleActivator(LogicalKeyboardKey.digit2, control: true): 1,
+  },
+  // ...
+)
+```
+
+#### Collapsible Navigation Rail 📍
+A chevron toggle button above the rail destinations lets users collapse the rail to icon-only mode. `railCollapseOnMedium` auto-collapses when the layout enters medium mode:
+
+```dart
+AdaptiveShell(
+  railCollapsible: true,         // shows toggle button
+  railCollapseOnMedium: true,    // auto-collapses on tablet breakpoint
+  // ...
+)
+```
+
+#### Custom Pane Divider ➗
+Replace the hardcoded `VerticalDivider` between the master and detail panes with any widget:
+
+```dart
+AdaptiveShell(
+  paneDivider: VerticalDivider(width: 2, color: Colors.blue),
+  // ...
+)
+```
+
+#### Context Extensions 🔧
 Quick access to layout information anywhere in your widget tree:
 
-- `context.screenType` - Get current LayoutMode
-- `context.isCompact`, `context.isMedium`, `context.isExpanded` - Boolean checks
-- `context.isMobile`, `context.isTablet`, `context.isDesktop` - Semantic aliases
-- `context.isTwoPane` - Check if showing two panes
-- `context.adaptiveWidth(baseWidth)` - Scale widths responsively
-- `context.adaptiveHeight(baseHeight)` - Scale heights responsively
-- `context.adaptivePadding()` - Get responsive padding
-- `context.adaptiveFontSize(baseSize)` - Scale font sizes
-- `context.adaptiveSpacing(baseSpacing)` - Scale spacing values
+- `context.screenType` / `context.layoutMode` — get current `LayoutMode` (usable in `switch`)
+- `context.isCompact`, `context.isMedium`, `context.isExpanded` — boolean checks
+- `context.isMobile`, `context.isTablet`, `context.isDesktop` — semantic aliases
+- `context.isTwoPane` — true when two panes are visible
+- `context.adaptiveWidth(base)` / `context.adaptiveHeight(base)` — scale dimensions
+- `context.adaptivePadding()` — responsive `EdgeInsets` (16 / 24 / 32)
+- `context.adaptiveFontSize(base)` / `context.adaptiveSpacing(base)` — scale text & gaps
+- `context.adaptiveColumns` — grid column count: **1 / 2 / 3** (compact / medium / expanded)
+- `context.adaptiveValue<T>(compact:, medium:, expanded:)` — any typed value per breakpoint
 
-**Example:**
 ```dart
-if (context.isCompact) {
-  // Mobile-specific code
-} else if (context.isTablet) {
-  // Tablet-specific code
-}
+// Boolean checks
+if (context.isCompact) { /* mobile */ }
+if (context.isTablet)  { /* medium or expanded */ }
 
-final width = context.adaptiveWidth(300); // Scales: 300/360/450
+// Typed per-breakpoint value
+final padding = context.adaptiveValue(compact: 8.0, medium: 16.0, expanded: 24.0);
+
+// Grid columns
+GridView.count(crossAxisCount: context.adaptiveColumns, ...)
+
+// Layout mode in switch
+switch (context.layoutMode) {
+  case LayoutMode.compact:  return MobileNav();
+  case LayoutMode.medium:   return TabletNav();
+  case LayoutMode.expanded: return DesktopNav();
+}
 ```
 
 #### Layout Change Callback
 React to layout mode transitions for analytics or state management:
 
-**Example:**
 ```dart
 AdaptiveShell(
   onLayoutModeChanged: (oldMode, newMode) {
     print('Layout: $oldMode → $newMode');
-    analytics.logEvent('layout_change', {'mode': newMode.name});
   },
-  // ...
-)
-
-// Also available on AdaptiveMasterDetail:
-AdaptiveMasterDetail(
-  onLayoutModeChanged: (oldMode, newMode) { ... },
   // ...
 )
 ```
@@ -49,35 +95,70 @@ AdaptiveMasterDetail(
 #### Debug Overlay
 Visual indicator showing current layout mode and breakpoints during development:
 
-**Example:**
 ```dart
-// Works on both AdaptiveShell and AdaptiveMasterDetail:
 AdaptiveShell(
   debugShowLayoutMode: true, // Shows overlay in top-right corner
   // ...
 )
-AdaptiveMasterDetail(
-  debugShowLayoutMode: true,
+```
+
+#### AutoScale 📏
+Proportionally scales your layout to fill any screen size — the same technique that made `responsive_framework`'s AutoScale popular:
+
+```dart
+AdaptiveShell(
+  autoScale: true,               // render at 360 dp design canvas, scale to screen
+  scaleFactor: 1.2,              // optional: 20% boost on top of auto scale
+  autoScaleDesignWidth: 390,     // optional: override canvas (e.g. iPhone 14 = 390 dp)
   // ...
 )
 ```
 
-### 🐛 Bug Fixes & Internal Improvements
-- `AdaptiveShell` refactored from `StatelessWidget` to `StatefulWidget` so layout-mode state is correctly preserved across widget rebuilds. This is fully backward-compatible — all existing code continues to work unchanged.
-- `onLayoutModeChanged` callback now reliably fires even when the widget tree is restructured between frames (e.g. during hot-reload or test pumps).
-- Fixed identical emoji used for `compact` and `medium` modes in the debug overlay — medium now correctly shows a distinct icon.
+Default `autoScaleDesignWidth` is **360 dp** — a typical phone canvas that ensures a compact (single-pane, bottom-nav) layout by default. The debug overlay gains a live `⚖️ Scale ×N.NN` line when `autoScale` is enabled.
 
-### 📖 Documentation
-- README updated with new features section, context extensions usage guide, and full API reference table for all 1.1.0 additions.
-- All `[parameterName]` doc references replaced with backtick style to resolve 10 `dart doc` warnings (zero warnings now).
-- Added inline documentation for `onLayoutModeChanged` and `debugShowLayoutMode`.
+#### State Persistence 💾
+Preserves scroll positions and widget state when the device rotates, the window resizes, or the layout mode changes:
+
+```dart
+AdaptiveShell(
+  persistState: true,
+  stateKey: 'my_shell',   // optional namespace (default: 'adaptive_shell')
+  // ...
+)
+```
+
+Uses stable `GlobalKey`s on `child1`/`child2` so element subtrees survive compact ↔ wide transitions, plus a keyed `PageStorage` bucket for scroll restoration.
+
+#### Animated Transitions ✨
+Fine-tune detail-pane animations:
+
+```dart
+AdaptiveShell(
+  transitionCurve: Curves.easeInOutCubic,   // custom curve (default: easeInOut)
+  enableHeroAnimations: true,               // slide + fade instead of cross-fade
+  // ...
+)
+```
+
+### 🔗 All new params available on `AdaptiveMasterDetail`
+`autoScale`, `scaleFactor`, `autoScaleDesignWidth`, `persistState`, `stateKey`, `transitionCurve`, `enableHeroAnimations`, `paneDivider`, `railCollapsible`, `railCollapseOnMedium`, `keyboardShortcuts` are all forwarded to the internal `AdaptiveShell`.
+
+### 🐛 Bug Fixes & Internal Improvements
+- `AdaptiveShell` refactored from `StatelessWidget` to `StatefulWidget` — fully backward-compatible.
+- `onLayoutModeChanged` now reliably fires across hot-reload and test pumps.
+- Fixed identical debug-overlay emoji for compact/medium modes.
+- `AdaptiveMasterDetail._computeMode` respects `autoScale` — navigation decisions (push vs in-place) now correctly match the visually rendered compact layout.
+
+### ✅ Tests
+- **37 new tests** for AutoScale, State Persistence, Animated Transitions, new context extensions, and `AdaptiveMasterDetail` pass-through.
+- **29 new tests** for AdaptiveBuilder, keyboard shortcuts, collapsible rail, and custom `paneDivider`.
+- Total: **134 tests**, all passing.
 
 ### ⚠️ Breaking Changes
-- None. All existing `1.0.0` / `1.0.0+2` code compiles and runs unchanged.
-- **Edge case**: The new `AdaptiveContextExtensions` adds extension methods on `BuildContext` (`isCompact`, `isMedium`, `isExpanded`, `isMobile`, `isTablet`, `isDesktop`, `isTwoPane`, `adaptiveWidth`, `adaptiveHeight`, `adaptiveFontSize`, `adaptiveSpacing`, `adaptivePadding`, `screenType`). If your codebase already defines any of these as `BuildContext` extensions with the same names, Dart will raise an ambiguity error. Resolve it by qualifying the call: `AdaptiveContextExtensions(context).isCompact` or by hiding the import: `import 'package:adaptive_shell/adaptive_shell.dart' hide AdaptiveContextExtensions;`.
+- None. All `1.0.x` code compiles and runs unchanged.
+- New `BuildContext` extensions (`layoutMode`, `adaptiveColumns`, `adaptiveValue`, and all v1.1.0 additions) may conflict if you already define identically-named extensions. Resolve with a hide import: `import 'package:adaptive_shell/adaptive_shell.dart' hide AdaptiveContextExtensions;`
 
 ---
-
 
 ## 1.0.0
 

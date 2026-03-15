@@ -170,4 +170,70 @@ extension AdaptiveContextExtensions on BuildContext {
         return baseSpacing * 1.5;
     }
   }
+
+  /// Alias for [screenType] — returns the current [LayoutMode].
+  ///
+  /// Useful in `switch` expressions without importing [AdaptiveShell]:
+  ///
+  /// ```dart
+  /// switch (context.layoutMode) {
+  ///   case LayoutMode.compact:  return MobileNav();
+  ///   case LayoutMode.medium:   return TabletNav();
+  ///   case LayoutMode.expanded: return DesktopNav();
+  /// }
+  /// ```
+  LayoutMode get layoutMode => AdaptiveShell.of(this);
+
+  /// Number of grid columns appropriate for the current layout.
+  ///
+  /// - Compact  → **1**
+  /// - Medium   → **2**
+  /// - Expanded → **3**
+  ///
+  /// ```dart
+  /// GridView.count(
+  ///   crossAxisCount: context.adaptiveColumns,
+  ///   children: tiles,
+  /// )
+  /// ```
+  int get adaptiveColumns {
+    switch (AdaptiveShell.of(this)) {
+      case LayoutMode.compact:
+        return 1;
+      case LayoutMode.medium:
+        return 2;
+      case LayoutMode.expanded:
+        return 3;
+    }
+  }
+
+  /// Returns one of three typed values based on the current layout mode.
+  ///
+  /// The most concise way to vary any property per breakpoint:
+  ///
+  /// ```dart
+  /// // padding
+  /// context.adaptiveValue(compact: 8.0, medium: 16.0, expanded: 24.0)
+  ///
+  /// // widget
+  /// context.adaptiveValue<Widget>(
+  ///   compact: const Icon(Icons.menu),
+  ///   medium:  const SizedBox.shrink(),
+  ///   expanded: const SizedBox.shrink(),
+  /// )
+  /// ```
+  T adaptiveValue<T>({
+    required T compact,
+    required T medium,
+    required T expanded,
+  }) {
+    switch (AdaptiveShell.of(this)) {
+      case LayoutMode.compact:
+        return compact;
+      case LayoutMode.medium:
+        return medium;
+      case LayoutMode.expanded:
+        return expanded;
+    }
+  }
 }

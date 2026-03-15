@@ -217,40 +217,39 @@ void main() {
       expect(isTwoPane, isFalse);
     });
 
-    testWidgets('isTwoPane returns true on medium with child2',
-            (tester) async {
-          bool? isTwoPane;
+    testWidgets('isTwoPane returns true on medium with child2', (tester) async {
+      bool? isTwoPane;
 
-          tester.view.physicalSize = const Size(700, 800);
-          tester.view.devicePixelRatio = 1.0;
-          addTearDown(tester.view.reset);
+      tester.view.physicalSize = const Size(700, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-          await tester.pumpWidget(
-            MaterialApp(
-              home: SizedBox(
-                width: 700,
-                height: 800,
-                child: AdaptiveShell(
-                  destinations: const [
-                    AdaptiveDestination(icon: Icons.home, label: 'Home'),
-                    AdaptiveDestination(icon: Icons.settings, label: 'Settings'),
-                  ],
-                  selectedIndex: 0,
-                  onDestinationSelected: (_) {},
-                  child1: Builder(
-                    builder: (context) {
-                      isTwoPane = context.isTwoPane;
-                      return const Text('Child1');
-                    },
-                  ),
-                  child2: const Text('Child2'),
-                ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 700,
+            height: 800,
+            child: AdaptiveShell(
+              destinations: const [
+                AdaptiveDestination(icon: Icons.home, label: 'Home'),
+                AdaptiveDestination(icon: Icons.settings, label: 'Settings'),
+              ],
+              selectedIndex: 0,
+              onDestinationSelected: (_) {},
+              child1: Builder(
+                builder: (context) {
+                  isTwoPane = context.isTwoPane;
+                  return const Text('Child1');
+                },
               ),
+              child2: const Text('Child2'),
             ),
-          );
+          ),
+        ),
+      );
 
-          expect(isTwoPane, isTrue);
-        });
+      expect(isTwoPane, isTrue);
+    });
 
     testWidgets('adaptiveWidth scales correctly', (tester) async {
       final results = <String, double>{};

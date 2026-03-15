@@ -1,5 +1,8 @@
+import 'dart:math' show min;
+
 import 'package:adaptive_shell/adaptive_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() => runApp(const MyApp());
 
@@ -110,11 +113,24 @@ const _destinations = [
 ];
 
 // ══════════════════════════════════════════════════════════════
-// AdaptiveMasterDetail<T> — Zero boilerplate (~30 lines)
-// Showcases v1.1.0 features:
+// AdaptiveMasterDetail<T> — Zero-boilerplate example
+//
+// Showcases ALL v1.1.0 features:
 //  • onLayoutModeChanged  — snackbar on every layout transition
 //  • debugShowLayoutMode  — toggleable dev overlay (top-right)
-//  • context extensions   — adaptive padding/font sizes in tiles
+//  • context.adaptivePadding / adaptiveFontSize / adaptiveSpacing
+//
+// NEW in v1.1.0 (toggled via the ⚙ FAB):
+//  📏 AutoScale            — autoScale + autoScaleDesignWidth
+//  💾 State Persistence    — persistState + stateKey
+//  ✨ Hero Animations       — enableHeroAnimations + transitionCurve
+//  📍 Collapsible Rail     — railCollapsible + railCollapseOnMedium
+//  ⌨️  Keyboard Shortcuts   — keyboardShortcuts (Ctrl+1…5)
+//
+// NEW context extensions demonstrated inline:
+//  • context.layoutMode   — displayed as a chip in the search header
+//  • context.adaptiveColumns  — drives vitals-grid columns
+//  • context.adaptiveValue<T> — items-per-row in vitals grid
 // ══════════════════════════════════════════════════════════════
 
 class ZeroBoilerplateExample extends StatefulWidget {
@@ -127,10 +143,16 @@ class ZeroBoilerplateExample extends StatefulWidget {
 class _ZeroBoilerplateExampleState extends State<ZeroBoilerplateExample> {
   int _navIndex = 0;
 
-  /// v1.1.0 — toggle the debug overlay at runtime.
+  // ── Feature toggles (all v1.1.0) ─────────────────────────────
   bool _showDebugOverlay = false;
+  bool _autoScale = false;
+  bool _persistState = false;
+  bool _heroAnimations = false;
+  bool _railCollapsible = true;
+  bool _railCollapseOnMedium = false;
 
-  /// v1.1.0 — called whenever the layout mode transitions.
+  // ─────────────────────────────────────────────────────────────
+
   void _onLayoutModeChanged(LayoutMode oldMode, LayoutMode newMode) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
@@ -144,75 +166,393 @@ class _ZeroBoilerplateExampleState extends State<ZeroBoilerplateExample> {
     );
   }
 
+  /// Opens the feature-toggle sheet.
+  void _openFeatureToggles() {
+    showModalBottomSheet<void>(
+      context: context,
+      // Allow the sheet to grow beyond the default 50 % cap so all
+      // six toggles fit without overflowing on compact screens.
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _FeatureToggleSheet(
+        showDebugOverlay: _showDebugOverlay,
+        autoScale: _autoScale,
+        persistState: _persistState,
+        heroAnimations: _heroAnimations,
+        railCollapsible: _railCollapsible,
+        railCollapseOnMedium: _railCollapseOnMedium,
+        onChanged: ({
+          required bool debugOverlay,
+          required bool autoScale,
+          required bool persistState,
+          required bool heroAnimations,
+          required bool railCollapsible,
+          required bool railCollapseOnMedium,
+        }) {
+          setState(() {
+            _showDebugOverlay = debugOverlay;
+            _autoScale = autoScale;
+            _persistState = persistState;
+            _heroAnimations = heroAnimations;
+            _railCollapsible = railCollapsible;
+            _railCollapseOnMedium = railCollapseOnMedium;
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Floating toggle button for the debug overlay (dev use only).
+      // ⚙ FAB opens the feature-toggle sheet.
       floatingActionButton: FloatingActionButton.small(
-        heroTag: 'debug_toggle',
-        tooltip: 'Toggle debug overlay',
-        onPressed: () => setState(() => _showDebugOverlay = !_showDebugOverlay),
-        child: Icon(
-          _showDebugOverlay ? Icons.bug_report : Icons.bug_report_outlined,
-        ),
+        heroTag: 'settings',
+        tooltip: 'Feature toggles',
+        onPressed: _openFeatureToggles,
+        child: const Icon(Icons.tune),
       ),
-      body: AdaptiveMasterDetail<Patient>(
-        items: _patients,
-        destinations: _destinations,
-        selectedNavIndex: _navIndex,
-        onNavSelected: (i) => setState(() => _navIndex = i),
-        breakpoints: AdaptiveBreakpoints.tabletFirst,
+      body: SafeArea(
+        child: AdaptiveMasterDetail<Patient>(
+          items: _patients,
+          destinations: _destinations,
+          selectedNavIndex: _navIndex,
+          onNavSelected: (i) => setState(() => _navIndex = i),
+          breakpoints: AdaptiveBreakpoints.tabletFirst,
 
-        // ── v1.1.0: layout change callback ──────────────────────
-        // Fires whenever the layout transitions between compact /
-        // medium / expanded.  Useful for analytics or state resets.
-        onLayoutModeChanged: _onLayoutModeChanged,
+          // ── Existing v1.1.0 ──────────────────────────────────────
+          onLayoutModeChanged: _onLayoutModeChanged,
+          debugShowLayoutMode: _showDebugOverlay,
 
-        // ── v1.1.0: debug overlay ────────────────────────────────
-        // Shows current mode, screen width, and breakpoints in the
-        // top-right corner.  Toggle with the FAB above.
-        debugShowLayoutMode: _showDebugOverlay,
+          // ── 📏 AutoScale (new v1.1.0) ────────────────────────────
+          // Renders the layout at 360 dp and proportionally scales it
+          // to fill the actual screen — mobile design "just works" on
+          // any device.  Toggle via the ⚙ FAB.
+          autoScale: _autoScale,
 
-        // Provide two builders — everything else is handled.
-        itemBuilder: (context, patient, selected) =>
-            PatientTile(patient: patient, selected: selected),
-        detailBuilder: (context, patient) => PatientDetail(patient: patient),
+          // ── 💾 State Persistence (new v1.1.0) ────────────────────
+          // Preserves scroll positions and widget state when the
+          // device rotates or the layout mode switches.
+          persistState: _persistState,
+          stateKey: 'patient_shell',
 
-        // Optional:
-        itemKey: (p) => p.id,
-        initialSelection: (items) => items.first,
-        detailAppBarTitle: (p) => p.name,
-        masterHeader: const SearchHeader(),
-        emptyDetailPlaceholder: const EmptyPlaceholder(),
+          // ── ✨ Animated Transitions (new v1.1.0) ──────────────────
+          // enableHeroAnimations replaces the cross-fade with a
+          // slide + fade when selecting a patient — tap a tile to see.
+          // transitionCurve controls the easing.
+          enableHeroAnimations: _heroAnimations,
+          transitionCurve: _heroAnimations ? Curves.easeInOutCubic : null,
+
+          // ── 📍 Collapsible Rail (new v1.1.0) ─────────────────────
+          // A chevron button appears above the rail so users can
+          // collapse it to icon-only mode. railCollapseOnMedium
+          // auto-collapses on tablet breakpoint.
+          railCollapsible: _railCollapsible,
+          railCollapseOnMedium: _railCollapseOnMedium,
+
+          // ── ⌨️ Keyboard Shortcuts (new v1.1.0) ───────────────────
+          // Ctrl+1…5 jump directly to each nav destination on
+          // tablet/desktop. Inactive on compact (mobile) layout.
+          keyboardShortcuts: {
+            SingleActivator(LogicalKeyboardKey.digit1, control: true): 0,
+            SingleActivator(LogicalKeyboardKey.digit2, control: true): 1,
+            SingleActivator(LogicalKeyboardKey.digit3, control: true): 2,
+            SingleActivator(LogicalKeyboardKey.digit4, control: true): 3,
+            SingleActivator(LogicalKeyboardKey.digit5, control: true): 4,
+          },
+
+          itemBuilder: (context, patient, selected) =>
+              PatientTile(patient: patient, selected: selected),
+          detailBuilder: (context, patient) => PatientDetail(patient: patient),
+
+          itemKey: (p) => p.id,
+          initialSelection: (items) => items.first,
+          detailAppBarTitle: (p) => p.name,
+          masterHeader: const SearchHeader(),
+          emptyDetailPlaceholder: const EmptyPlaceholder(),
+        ),
       ),
     );
   }
 }
 
-// ─── Shared widgets ───
+// ─── Feature-toggle bottom sheet ─────────────────────────────────────────────
 
+typedef _OnFeaturesChanged = void Function({
+  required bool debugOverlay,
+  required bool autoScale,
+  required bool persistState,
+  required bool heroAnimations,
+  required bool railCollapsible,
+  required bool railCollapseOnMedium,
+});
+
+class _FeatureToggleSheet extends StatefulWidget {
+  const _FeatureToggleSheet({
+    required this.showDebugOverlay,
+    required this.autoScale,
+    required this.persistState,
+    required this.heroAnimations,
+    required this.railCollapsible,
+    required this.railCollapseOnMedium,
+    required this.onChanged,
+  });
+
+  final bool showDebugOverlay, autoScale, persistState, heroAnimations;
+  final bool railCollapsible, railCollapseOnMedium;
+  final _OnFeaturesChanged onChanged;
+
+  @override
+  State<_FeatureToggleSheet> createState() => _FeatureToggleSheetState();
+}
+
+class _FeatureToggleSheetState extends State<_FeatureToggleSheet> {
+  late bool _debug, _auto, _persist, _hero, _railCollapsible, _railCollapseOnMedium;
+
+  @override
+  void initState() {
+    super.initState();
+    _debug = widget.showDebugOverlay;
+    _auto = widget.autoScale;
+    _persist = widget.persistState;
+    _hero = widget.heroAnimations;
+    _railCollapsible = widget.railCollapsible;
+    _railCollapseOnMedium = widget.railCollapseOnMedium;
+  }
+
+  void _notify() => widget.onChanged(
+        debugOverlay: _debug,
+        autoScale: _auto,
+        persistState: _persist,
+        heroAnimations: _hero,
+        railCollapsible: _railCollapsible,
+        railCollapseOnMedium: _railCollapseOnMedium,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    // Cap the sheet at 85 % of screen height so it never covers the whole
+    // screen, but can grow well past the old 50 % default.  The ListView
+    // makes the toggle list scrollable on very small screens or landscape.
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 16, 24, 32 + bottomInset),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            // ── Handle ────────────────────────────────────────────
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Text('Feature Toggles (v1.1.0)',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Toggle live to see each feature in action.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey.shade500)),
+            const Divider(height: 24),
+            // ── Toggles ───────────────────────────────────────────
+            _Toggle(
+              icon: Icons.bug_report_outlined,
+              color: Colors.blueGrey,
+              title: 'Debug Overlay',
+              subtitle: 'Mode, breakpoints & scale factor — top-right corner',
+              value: _debug,
+              onChanged: (v) {
+                setState(() => _debug = v);
+                _notify();
+              },
+            ),
+            _Toggle(
+              icon: Icons.zoom_out_map,
+              color: Colors.indigo,
+              title: '📏 AutoScale',
+              subtitle:
+                  'Renders at 360 dp, scales to fill screen — resize to see',
+              value: _auto,
+              onChanged: (v) {
+                setState(() => _auto = v);
+                _notify();
+              },
+            ),
+            _Toggle(
+              icon: Icons.save_outlined,
+              color: Colors.teal,
+              title: '💾 Persist State',
+              subtitle:
+                  'Scroll position survives layout transitions — resize to test',
+              value: _persist,
+              onChanged: (v) {
+                setState(() => _persist = v);
+                _notify();
+              },
+            ),
+            _Toggle(
+              icon: Icons.animation,
+              color: Colors.orange,
+              title: '✨ Hero Animations',
+              subtitle:
+                  'Slide + fade when selecting a patient — tap a tile to see',
+              value: _hero,
+              onChanged: (v) {
+                setState(() => _hero = v);
+                _notify();
+              },
+            ),
+            _Toggle(
+              icon: Icons.menu_open,
+              color: Colors.purple,
+              title: '📍 Collapsible Rail',
+              subtitle:
+                  'Chevron button collapses nav rail to icon-only (tablet+)',
+              value: _railCollapsible,
+              onChanged: (v) {
+                setState(() => _railCollapsible = v);
+                _notify();
+              },
+            ),
+            _Toggle(
+              icon: Icons.tablet_outlined,
+              color: Colors.deepPurple,
+              title: '📍 Auto-collapse on Tablet',
+              subtitle:
+                  'Rail collapses automatically when entering medium mode',
+              value: _railCollapseOnMedium,
+              onChanged: (v) {
+                setState(() => _railCollapseOnMedium = v);
+                _notify();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title, subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+            color: color.withAlpha(25), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 18, color: color),
+      ),
+      title: Text(title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+}
+
+// ─── Shared widgets ───────────────────────────────────────────────────────────
+
+/// Search bar header — demonstrates [context.layoutMode] and
+/// [context.adaptiveColumns] (new v1.1.0 extensions).
 class SearchHeader extends StatelessWidget {
   const SearchHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // v1.1.0: context.adaptivePadding() scales 16 → 20 → 24 across breakpoints.
+    // NEW v1.1.0: context.layoutMode — alias for screenType, usable in switch.
+    final mode = context.layoutMode;
+    final modeLabel = switch (mode) {
+      LayoutMode.compact => '📱 Compact',
+      LayoutMode.medium => '📟 Medium',
+      LayoutMode.expanded => '🖥 Expanded',
+    };
+
     return Padding(
+      // Existing v1.1.0: adaptivePadding scales 12 → 16 → 20.
       padding: context.adaptivePadding(compact: 12, medium: 16, expanded: 20),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Search patient...',
-          prefixIcon: const Icon(Icons.search),
-          filled: true,
-          fillColor: Theme.of(context)
-              .colorScheme
-              .surfaceContainerHighest
-              .withAlpha(77),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Search patient...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withAlpha(77),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // NEW v1.1.0: context.layoutMode chip + context.adaptiveColumns badge.
+          Row(
+            children: [
+              // Shows current LayoutMode via context.layoutMode.
+              Chip(
+                padding: EdgeInsets.zero,
+                labelPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                visualDensity: VisualDensity.compact,
+                label: Text(modeLabel,
+                    style: const TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 8),
+              // Shows adaptiveColumns value — 1 / 2 / 3 per screen size.
+              Chip(
+                padding: EdgeInsets.zero,
+                labelPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Colors.grey.shade100,
+                label: Text(
+                    '${context.adaptiveColumns} col${context.adaptiveColumns > 1 ? 's' : ''}',
+                    style:
+                        TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -225,14 +565,14 @@ class EmptyPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.touch_app_outlined,
-          // v1.1.0: context.adaptiveWidth scales icon size responsively.
+          // Existing v1.1.0: context.adaptiveWidth scales icon size.
           size: context.adaptiveWidth(48),
           color: Colors.grey.shade400),
       const SizedBox(height: 12),
       Text('Select a patient',
           style: TextStyle(
               color: Colors.grey.shade500,
-              // v1.1.0: context.adaptiveFontSize scales 16 → 17.6 → 19.2.
+              // Existing v1.1.0: adaptiveFontSize scales 16 → 17.6 → 19.2.
               fontSize: context.adaptiveFontSize(16))),
     ]);
   }
@@ -256,9 +596,9 @@ class PatientTile extends StatelessWidget {
             : BorderSide.none,
       ),
       child: ListTile(
-        // v1.1.0: adaptive content padding via context extension.
-        contentPadding: context.adaptivePadding(
-            compact: 8, medium: 12, expanded: 16)
+        // Existing v1.1.0: adaptive content padding.
+        contentPadding: context
+            .adaptivePadding(compact: 8, medium: 12, expanded: 16)
             .copyWith(top: 0, bottom: 0),
         leading: CircleAvatar(
           backgroundColor: patient.color.withAlpha(25),
@@ -269,7 +609,7 @@ class PatientTile extends StatelessWidget {
         title: Text(patient.name,
             style: TextStyle(
                 fontWeight: FontWeight.w600,
-                // v1.1.0: font scales up on larger screens.
+                // Existing v1.1.0: font scales up on larger screens.
                 fontSize: context.adaptiveFontSize(14))),
         subtitle: Text('${patient.gender} | ${patient.age} | ${patient.bed}'),
         trailing: selected
@@ -292,10 +632,11 @@ class PatientDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // v1.1.0: adaptive padding scales 16 → 24 → 32 across breakpoints.
+    // Existing v1.1.0: adaptive padding 16 → 24 → 32.
     return SingleChildScrollView(
       padding: context.adaptivePadding(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Header ──
         Row(children: [
           CircleAvatar(
               radius: 24,
@@ -312,29 +653,49 @@ class PatientDetail extends StatelessWidget {
                 Text(patient.name,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        // v1.1.0: title scales responsively.
+                        // Existing v1.1.0: title scales responsively.
                         fontSize: context.adaptiveFontSize(20))),
                 Text('${patient.gender} | ${patient.age} | ${patient.bed}',
                     style: Theme.of(context).textTheme.bodySmall),
               ])),
         ]),
-        // v1.1.0: adaptive spacing between sections.
+
+        // Existing v1.1.0: adaptive vertical spacing.
         SizedBox(height: context.adaptiveSpacing(24)),
-        _section(
-            context,
-            'VITALS',
-            Icons.monitor_heart,
-            patient.color,
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _V(l: 'HR', v: '72', u: 'bpm'),
-                _V(l: 'BP', v: '120/80', u: 'mmHg'),
-                _V(l: 'Temp', v: '98.6', u: 'F'),
-                _V(l: 'SpO2', v: '98', u: '%')
-              ],
-            )),
+
+        // ── Vitals card — demonstrates context.adaptiveValue ─────────────
+        _section(context, 'VITALS', Icons.monitor_heart, patient.color,
+            // NEW v1.1.0: context.adaptiveValue<int> — type-safe per-breakpoint
+            // value. Shows 2 vitals per row on compact, 4 on medium/expanded.
+            Builder(builder: (ctx) {
+          final perRow =
+              ctx.adaptiveValue<int>(compact: 2, medium: 4, expanded: 4);
+          const vitals = [
+            _V(l: 'HR', v: '72', u: 'bpm'),
+            _V(l: 'BP', v: '120/80', u: 'mmHg'),
+            _V(l: 'Temp', v: '98.6', u: 'F'),
+            _V(l: 'SpO2', v: '98', u: '%'),
+          ];
+          return Column(
+            children: [
+              for (int i = 0; i < vitals.length; i += perRow)
+                Padding(
+                  padding: EdgeInsets.only(
+                      bottom: i + perRow < vitals.length ? 8 : 0),
+                  child: Row(
+                    children: vitals
+                        .sublist(i, min(i + perRow, vitals.length))
+                        .map((v) => Expanded(child: v))
+                        .toList(),
+                  ),
+                ),
+            ],
+          );
+        })),
+
         SizedBox(height: context.adaptiveSpacing(12)),
+
+        // ── Tasks card ───────────────────────────────────────────────────
         _section(
             context,
             'TASKS',
@@ -381,16 +742,20 @@ class _V extends StatelessWidget {
   final String l, v, u;
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-        Text(l,
-            style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.bold)),
-        Text(v,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-        Text(u, style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
-      ]);
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(l,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.bold)),
+          Text(v,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Text(u, style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+        ],
+      );
 }
 
 class _T extends StatelessWidget {

@@ -93,6 +93,23 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
     this.compactDetailScaffoldBuilder,
     this.onLayoutModeChanged,
     this.debugShowLayoutMode = false,
+    // AutoScale
+    this.autoScale = false,
+    this.scaleFactor = 1.0,
+    this.autoScaleDesignWidth,
+    // State persistence
+    this.persistState = false,
+    this.stateKey,
+    // Animated transitions
+    this.transitionCurve,
+    this.enableHeroAnimations = false,
+    // Pane divider
+    this.paneDivider,
+    // Collapsible rail
+    this.railCollapsible = false,
+    this.railCollapseOnMedium = false,
+    // Keyboard shortcuts
+    this.keyboardShortcuts,
   });
 
   /// The data items displayed in the master list.
@@ -209,6 +226,39 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
   /// Set to `true` during development; remove before shipping.
   final bool debugShowLayoutMode;
 
+  /// See [AdaptiveShell.autoScale].
+  final bool autoScale;
+
+  /// See [AdaptiveShell.scaleFactor].
+  final double scaleFactor;
+
+  /// See [AdaptiveShell.autoScaleDesignWidth].
+  final double? autoScaleDesignWidth;
+
+  /// See [AdaptiveShell.persistState].
+  final bool persistState;
+
+  /// See [AdaptiveShell.stateKey].
+  final String? stateKey;
+
+  /// See [AdaptiveShell.transitionCurve].
+  final Curve? transitionCurve;
+
+  /// See [AdaptiveShell.enableHeroAnimations].
+  final bool enableHeroAnimations;
+
+  /// See [AdaptiveShell.paneDivider].
+  final Widget? paneDivider;
+
+  /// See [AdaptiveShell.railCollapsible].
+  final bool railCollapsible;
+
+  /// See [AdaptiveShell.railCollapseOnMedium].
+  final bool railCollapseOnMedium;
+
+  /// See [AdaptiveShell.keyboardShortcuts].
+  final Map<ShortcutActivator, int>? keyboardShortcuts;
+
   @override
   State<AdaptiveMasterDetail<T>> createState() =>
       _AdaptiveMasterDetailState<T>();
@@ -254,6 +304,8 @@ class _AdaptiveMasterDetailState<T> extends State<AdaptiveMasterDetail<T>> {
     if (width >= widget.breakpoints.compact) return LayoutMode.medium;
     return LayoutMode.compact;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   /// Handles item taps using [_currentMode] (from LayoutBuilder),
   /// NOT [AdaptiveShell.of(context)].
@@ -302,7 +354,13 @@ class _AdaptiveMasterDetailState<T> extends State<AdaptiveMasterDetail<T>> {
     // when the window is resized.
     return LayoutBuilder(
       builder: (layoutContext, constraints) {
-        _currentMode = _computeMode(constraints.maxWidth);
+        // When autoScale is active the shell renders at the design width.
+        // Use that same effective width to decide push-vs-update so that
+        // navigation behaviour matches what the user actually sees.
+        final effectiveWidth = widget.autoScale
+            ? (widget.autoScaleDesignWidth ?? 360.0)
+            : constraints.maxWidth;
+        _currentMode = _computeMode(effectiveWidth);
 
         final Widget? detailPane;
         if (_selected != null) {
@@ -331,6 +389,17 @@ class _AdaptiveMasterDetailState<T> extends State<AdaptiveMasterDetail<T>> {
           emptyDetailPlaceholder: widget.emptyDetailPlaceholder,
           onLayoutModeChanged: widget.onLayoutModeChanged,
           debugShowLayoutMode: widget.debugShowLayoutMode,
+          autoScale: widget.autoScale,
+          scaleFactor: widget.scaleFactor,
+          autoScaleDesignWidth: widget.autoScaleDesignWidth,
+          persistState: widget.persistState,
+          stateKey: widget.stateKey,
+          transitionCurve: widget.transitionCurve,
+          enableHeroAnimations: widget.enableHeroAnimations,
+          paneDivider: widget.paneDivider,
+          railCollapsible: widget.railCollapsible,
+          railCollapseOnMedium: widget.railCollapseOnMedium,
+          keyboardShortcuts: widget.keyboardShortcuts,
           child1: _buildMasterList(),
           child2: detailPane,
         );
