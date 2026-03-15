@@ -30,7 +30,7 @@ Building adaptive layouts in Flutter typically requires hundreds of lines of boi
 - **Context extensions** — `context.isCompact`, `context.isTwoPane`, `context.adaptiveWidth()`, `context.adaptiveColumns`, `context.adaptiveValue()` and more for clean, readable code
 - **AdaptiveBuilder** — standalone `LayoutBuilder`-powered widget that picks between compact/medium/expanded builders without needing an `AdaptiveShell` ancestor
 - **Keyboard shortcuts** — `keyboardShortcuts` map lets users navigate via `Ctrl+1`, `Ctrl+2`, etc. on tablet/desktop
-- **Collapsible rail** — `railCollapsible: true` adds a chevron toggle; `railCollapseOnMedium` auto-collapses on tablet
+- **Collapsible rail** — `railCollapsible: true` adds a chevron toggle; `railCollapseOnMedium` auto-collapses on tablet; destinations scroll gracefully on short screens instead of overflowing
 - **Custom pane divider** — `paneDivider` replaces the default `VerticalDivider` between master and detail panes
 - **AutoScale**  — `autoScale: true` scales your mobile design proportionally to fill any screen, just like `responsive_framework`'s AutoScale
 - **State persistence**  — `persistState: true` preserves scroll positions and widget state when the device rotates or the layout mode changes
@@ -285,6 +285,8 @@ AdaptiveShell(
 | Expanded, not collapsed | `true` | `none` (labels inline) |
 | Medium, not collapsed | `false` | `all` (labels below icons) |
 | Collapsed (any mode) | `false` | `none` (icons only) |
+
+> **Short-screen behaviour:** when the toggle is shown and many destinations are present, the rail scrolls vertically instead of overflowing — so even 5+ destinations on a compact-height screen render without a `RenderFlex` overflow assertion.
 
 ### Custom pane divider (v1.1.0) ➗
 

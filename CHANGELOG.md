@@ -148,11 +148,13 @@ AdaptiveShell(
 - `onLayoutModeChanged` now reliably fires across hot-reload and test pumps.
 - Fixed identical debug-overlay emoji for compact/medium modes.
 - `AdaptiveMasterDetail._computeMode` respects `autoScale` — navigation decisions (push vs in-place) now correctly match the visually rendered compact layout.
+- **Fixed `NavigationRail` overflow when `railCollapsible: true`** — the toggle button (~36 px) consumed height from the `Column` that also holds the `NavigationRail`, causing a `RenderFlex overflowed by N pixels on the bottom` assertion on short screens with many destinations. The rail is now wrapped in `LayoutBuilder → SingleChildScrollView + ConstrainedBox(minHeight) + IntrinsicHeight` so destinations scroll gracefully when they exceed the available height, while still centering correctly on taller screens. The wrapper is applied only when the toggle is present; the default (`railCollapsible: false`) path is unchanged.
 
 ### ✅ Tests
 - **37 new tests** for AutoScale, State Persistence, Animated Transitions, new context extensions, and `AdaptiveMasterDetail` pass-through.
 - **29 new tests** for AdaptiveBuilder, keyboard shortcuts, collapsible rail, and custom `paneDivider`.
-- Total: **134 tests**, all passing.
+- **3 new regression tests** for the `railCollapsible` overflow fix (expanded + medium layouts, and default path).
+- Total: **139 tests**, all passing.
 
 ### ⚠️ Breaking Changes
 - None. All `1.0.x` code compiles and runs unchanged.
