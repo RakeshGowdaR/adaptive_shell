@@ -25,6 +25,8 @@ library;
 export 'src/adaptive_shell.dart';
 export 'src/adaptive_master_detail.dart';
 export 'src/adaptive_destination.dart';
+export 'src/adaptive_shell_theme.dart';
+export 'src/adaptive_shell_controller.dart';
 export 'src/breakpoints.dart';
 export 'src/layout_mode.dart';
 export 'src/adaptive_extensions.dart';

@@ -1,3 +1,114 @@
+## 2.0.0
+
+> **All changes are additive and backward compatible.**
+> Existing `AdaptiveDestination(icon: Icons.people, label: '...')` code
+> compiles and runs with zero changes.
+
+### ✨ New Features
+
+#### `AdaptiveShellTheme` — full navigation theming 🎨
+
+A single `const`-able class that controls every visual aspect of the
+navigation chrome. Pass it to `AdaptiveShell.theme`:
+
+```dart
+AdaptiveShell(
+  theme: const AdaptiveShellTheme(
+    // Rail
+    railMinExtendedWidth: 180,       // tighter default (was Flutter's 256)
+    railBackgroundColor: Color(0xFFF8F9FA),
+    railIndicatorColor: Color(0xFFD0BCFF),
+    railSelectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
+    railDecoration: BoxDecoration(
+      border: Border(right: BorderSide(color: Color(0xFFE0E0E0))),
+    ),
+    // Nav bar
+    navBarIndicatorColor: Color(0xFFD0BCFF),
+    navBarLabelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+    navBarHeight: 72,
+  ),
+)
+```
+
+Supports `copyWith` and `lerp`.
+
+#### `AdaptiveShellController` — programmatic rail control 🎛️
+
+Collapse/expand the navigation rail from anywhere without prop-drilling:
+
+```dart
+final _nav = AdaptiveShellController();
+
+AdaptiveShell(controller: _nav, ...)
+
+// From an AppBar action or FAB:
+IconButton(onPressed: _nav.toggleRail, icon: const Icon(Icons.menu))
+```
+
+Methods: `collapseRail()`, `expandRail()`, `toggleRail()`.
+Property: `isRailCollapsed`.
+
+#### Widget icons for `AdaptiveDestination` — SVG, PNG, custom 🖼️
+
+`icon` is now optional (`IconData?`). Use `iconWidget`, `selectedIconWidget`,
+or `iconBuilder` for full widget-based icons:
+
+```dart
+// Classic IconData — unchanged, still works
+const AdaptiveDestination(icon: Icons.home, label: 'Home')
+
+// SVG / PNG widget pair
+AdaptiveDestination(
+  iconWidget: SvgPicture.asset('assets/home.svg'),
+  selectedIconWidget: SvgPicture.asset('assets/home_filled.svg'),
+  label: 'Home',
+)
+
+// Builder — recommended for theme-driven SVG colors
+AdaptiveDestination(
+  iconBuilder: (context, isSelected) => SvgPicture.asset(
+    'assets/home.svg',
+    colorFilter: ColorFilter.mode(
+      isSelected
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurfaceVariant,
+      BlendMode.srcIn,
+    ),
+  ),
+  label: 'Home',
+)
+```
+
+#### Custom nav builders 🏗️
+
+Replace the entire `NavigationBar` or `NavigationRail` with your own widget:
+
+```dart
+AdaptiveShell(
+  navigationBarBuilder: (context, destinations, index, onSelected) =>
+      MyCustomBottomBar(...),
+  navigationRailBuilder: (context, destinations, index, onSelected, isExtended) =>
+      MyCustomSidebar(...),
+)
+```
+
+#### More `AdaptiveDestination` fields
+
+| Field | Description |
+|---|---|
+| `iconSize: double?` | Wraps the resolved icon in a `SizedBox` for consistent SVG/PNG sizing |
+| `tooltip: String?` | Custom tooltip (defaults to label) |
+| `enabled: bool` | Disable individual destinations (grayed out, non-tappable) |
+| `badgeLabel: String?` | Flexible badge: `""` = dot, `"NEW"`, `"99+"` |
+
+### 🐛 Bug Fix
+
+- Navigation rail on desktop mode now defaults to `minExtendedWidth: 160`
+  (previously fell back to Flutter's built-in `256` default, which consumed
+  too much horizontal space on typical laptop windows).
+
+---
+
 ## 1.1.0
 
 ### ✨ New Features

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'adaptive_destination.dart';
 import 'adaptive_shell.dart';
+import 'adaptive_shell_controller.dart';
+import 'adaptive_shell_theme.dart';
 import 'breakpoints.dart';
 import 'layout_mode.dart';
 
@@ -110,6 +112,11 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
     this.railCollapseOnMedium = false,
     // Keyboard shortcuts
     this.keyboardShortcuts,
+    // Theme & controller (v2.0)
+    this.theme,
+    this.controller,
+    this.navigationBarBuilder,
+    this.navigationRailBuilder,
   });
 
   /// The data items displayed in the master list.
@@ -259,6 +266,18 @@ class AdaptiveMasterDetail<T> extends StatefulWidget {
   /// See [AdaptiveShell.keyboardShortcuts].
   final Map<ShortcutActivator, int>? keyboardShortcuts;
 
+  /// See [AdaptiveShell.theme].
+  final AdaptiveShellTheme? theme;
+
+  /// See [AdaptiveShell.controller].
+  final AdaptiveShellController? controller;
+
+  /// See [AdaptiveShell.navigationBarBuilder].
+  final AdaptiveNavBarBuilder? navigationBarBuilder;
+
+  /// See [AdaptiveShell.navigationRailBuilder].
+  final AdaptiveNavRailBuilder? navigationRailBuilder;
+
   @override
   State<AdaptiveMasterDetail<T>> createState() =>
       _AdaptiveMasterDetailState<T>();
@@ -400,6 +419,10 @@ class _AdaptiveMasterDetailState<T> extends State<AdaptiveMasterDetail<T>> {
           railCollapsible: widget.railCollapsible,
           railCollapseOnMedium: widget.railCollapseOnMedium,
           keyboardShortcuts: widget.keyboardShortcuts,
+          theme: widget.theme,
+          controller: widget.controller,
+          navigationBarBuilder: widget.navigationBarBuilder,
+          navigationRailBuilder: widget.navigationRailBuilder,
           child1: _buildMasterList(),
           child2: detailPane,
         );

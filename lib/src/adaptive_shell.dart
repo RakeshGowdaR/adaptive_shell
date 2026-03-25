@@ -2,8 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'adaptive_destination.dart';
+import 'adaptive_shell_controller.dart';
+import 'adaptive_shell_theme.dart';
 import 'breakpoints.dart';
 import 'layout_mode.dart';
+
+/// Builder for a fully custom compact [NavigationBar].
+///
+/// Receives the current destinations, selected index, and selection callback.
+/// When provided to [AdaptiveShell.navigationBarBuilder], the default
+/// [NavigationBar] and [AdaptiveShell.theme] nav-bar properties are ignored.
+///
+/// ```dart
+/// AdaptiveShell(
+///   navigationBarBuilder: (context, destinations, index, onSelected) {
+///     return MyCustomBottomBar(
+///       destinations: destinations,
+///       selectedIndex: index,
+///       onTap: onSelected,
+///     );
+///   },
+/// )
+/// ```
+typedef AdaptiveNavBarBuilder = Widget Function(
+  BuildContext context,
+  List<AdaptiveDestination> destinations,
+  int selectedIndex,
+  ValueChanged<int> onDestinationSelected,
+);
+
+/// Builder for a fully custom wide [NavigationRail].
+///
+/// Receives the current destinations, selected index, selection callback, and
+/// whether the rail is in extended mode. When provided to
+/// [AdaptiveShell.navigationRailBuilder], the default [NavigationRail] and
+/// [AdaptiveShell.theme] rail properties are ignored.
+///
+/// ```dart
+/// AdaptiveShell(
+///   navigationRailBuilder: (context, destinations, index, onSelected, isExtended) {
+///     return MyCustomSidebar(
+///       destinations: destinations,
+///       selectedIndex: index,
+///       onTap: onSelected,
+///       showLabels: isExtended,
+///     );
+///   },
+/// )
+/// ```
+typedef AdaptiveNavRailBuilder = Widget Function(
+  BuildContext context,
+  List<AdaptiveDestination> destinations,
+  int selectedIndex,
+  ValueChanged<int> onDestinationSelected,
+  bool isExtended,
+);
 
 /// Provides the current [LayoutMode] to descendants via [AdaptiveShell.of].
 class AdaptiveShellScope extends InheritedWidget {
@@ -206,6 +259,60 @@ class AdaptiveShell extends StatefulWidget {
   /// ```
   final Map<ShortcutActivator, int>? keyboardShortcuts;
 
+  // ── Theme (v2.0) ────────────────────────────────────────────────────────
+
+  /// Visual theme for all navigation chrome (rail + bar).
+  ///
+  /// Controls colors, sizes, label styles, indicator shapes, and more for
+  /// both [NavigationBar] (compact) and [NavigationRail] (medium/expanded).
+  ///
+  /// ```dart
+  /// AdaptiveShell(
+  ///   theme: const AdaptiveShellTheme(
+  ///     railMinExtendedWidth: 180,
+  ///     railBackgroundColor: Color(0xFFF8F9FA),
+  ///     navBarIndicatorColor: Color(0xFFD0BCFF),
+  ///   ),
+  /// )
+  /// ```
+  final AdaptiveShellTheme? theme;
+
+  // ── Controller (v2.0) ───────────────────────────────────────────────────
+
+  /// Programmatic controller for collapse/expand of the navigation rail.
+  ///
+  /// Allows any widget in the tree to toggle the rail without prop-drilling.
+  /// The caller owns the controller's lifecycle and must call
+  /// [AdaptiveShellController.dispose] when done.
+  ///
+  /// ```dart
+  /// final _nav = AdaptiveShellController();
+  /// AdaptiveShell(controller: _nav, ...)
+  /// // From an AppBar action:
+  /// IconButton(onPressed: _nav.toggleRail, icon: const Icon(Icons.menu))
+  /// ```
+  final AdaptiveShellController? controller;
+
+  // ── Custom builders (v2.0) ──────────────────────────────────────────────
+
+  /// Completely replaces the compact [NavigationBar] with a custom widget.
+  ///
+  /// When set, [theme] nav-bar fields are ignored — the builder owns all
+  /// styling. The shell still passes destinations, selected index, and the
+  /// selection callback so state stays in sync.
+  ///
+  /// See [AdaptiveNavBarBuilder] for the full signature.
+  final AdaptiveNavBarBuilder? navigationBarBuilder;
+
+  /// Completely replaces the wide [NavigationRail] with a custom widget.
+  ///
+  /// When set, [theme] rail fields are ignored — the builder owns all
+  /// styling. Receives [isExtended] so the builder can adapt to
+  /// collapsed/expanded state.
+  ///
+  /// See [AdaptiveNavRailBuilder] for the full signature.
+  final AdaptiveNavRailBuilder? navigationRailBuilder;
+
   /// Creates an adaptive shell.
   const AdaptiveShell({
     super.key,
@@ -242,8 +349,15 @@ class AdaptiveShell extends StatefulWidget {
     // Collapsible rail
     this.railCollapsible = false,
     this.railCollapseOnMedium = false,
-    // Keyboard shortcuts
+  /// Keyboard shortcuts
     this.keyboardShortcuts,
+    // Theme
+    this.theme,
+    // Controller
+    this.controller,
+    // Custom builders
+    this.navigationBarBuilder,
+    this.navigationRailBuilder,
   });
 
   /// The primary content widget, always visible.
@@ -361,6 +475,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void initState() {
     super.initState();
     if (widget.persistState) _storageBucket = PageStorageBucket();
+    // Wire controller — sync initial collapse state and listen for changes.
+    if (widget.controller != null) {
+      _isRailCollapsed = widget.controller!.isRailCollapsed;
+      widget.controller!.addListener(_onControllerChanged);
+    }
   }
 
   @override
@@ -371,6 +490,34 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     } else if (!widget.persistState && _storageBucket != null) {
       _storageBucket = null;
     }
+    // Re-wire controller if it changed.
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChanged);
+      widget.controller?.addListener(_onControllerChanged);
+      if (widget.controller != null) {
+        setState(() => _isRailCollapsed = widget.controller!.isRailCollapsed);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    assert(() {
+      if (widget.controller!.debugDisposed) {
+        throw FlutterError(
+          'AdaptiveShellController was used after being disposed.\n'
+          'Call dispose() only when the controller is no longer needed.',
+        );
+      }
+      return true;
+    }());
+    if (!mounted) return;
+    setState(() => _isRailCollapsed = widget.controller!.isRailCollapsed);
   }
 
   Widget get _effectiveChild1 => widget.persistState
@@ -525,8 +672,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   Widget _buildLayout(BuildContext context, LayoutMode mode, double width) {
     final c1 = _effectiveChild1;
     final c2 = _effectiveChild2;
+    // Toggle: prefer controller when available; fall back to local setState.
     final VoidCallback? toggleCollapse = widget.railCollapsible
-        ? () => setState(() => _isRailCollapsed = !_isRailCollapsed)
+        ? () {
+            if (widget.controller != null) {
+              widget.controller!.toggleRail();
+            } else {
+              setState(() => _isRailCollapsed = !_isRailCollapsed);
+            }
+          }
         : null;
     switch (mode) {
       case LayoutMode.compact:
@@ -563,24 +717,106 @@ class _CompactLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget bottomNav;
+
+    if (shell.navigationBarBuilder != null) {
+      // Fully custom nav bar — shell hands off all control.
+      bottomNav = shell.navigationBarBuilder!(
+        context,
+        shell.destinations,
+        shell.selectedIndex,
+        shell.onDestinationSelected,
+      );
+    } else {
+      final t = shell.theme;
+      final bar = NavigationBar(
+        selectedIndex: shell.selectedIndex,
+        onDestinationSelected: shell.onDestinationSelected,
+        destinations: shell.destinations
+            .map((d) => _toNavDestination(context, d))
+            .toList(),
+        backgroundColor: t?.navBarBackgroundColor,
+        elevation: t?.navBarElevation,
+        shadowColor: t?.navBarShadowColor,
+        surfaceTintColor: t?.navBarSurfaceTintColor,
+        height: t?.navBarHeight,
+        indicatorColor: t?.navBarIndicatorColor,
+        indicatorShape: t?.navBarIndicatorShape,
+        labelBehavior: t?.navBarLabelBehavior,
+      );
+
+      // Wrap in NavigationBarTheme only when icon/label style overrides
+      // are requested — avoids an unnecessary widget when theme is null.
+      if (t != null &&
+          (t.navBarSelectedIconTheme != null ||
+              t.navBarUnselectedIconTheme != null ||
+              t.navBarSelectedLabelStyle != null ||
+              t.navBarUnselectedLabelStyle != null)) {
+        bottomNav = NavigationBarTheme(
+          data: NavigationBarThemeData(
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return t.navBarSelectedIconTheme;
+              }
+              return t.navBarUnselectedIconTheme;
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return t.navBarSelectedLabelStyle;
+              }
+              return t.navBarUnselectedLabelStyle;
+            }),
+          ),
+          child: bar,
+        );
+      } else {
+        bottomNav = bar;
+      }
+    }
+
     return Scaffold(
       appBar: shell.appBar,
       body: child1,
       floatingActionButton: shell.floatingActionButton,
       floatingActionButtonLocation: shell.floatingActionButtonLocation,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: shell.selectedIndex,
-        onDestinationSelected: shell.onDestinationSelected,
-        destinations: shell.destinations.map(_toNavDestination).toList(),
-      ),
+      bottomNavigationBar: bottomNav,
     );
   }
 
-  NavigationDestination _toNavDestination(AdaptiveDestination dest) {
-    Widget icon = Icon(dest.icon);
-    Widget selectedIcon = Icon(dest.selectedIcon ?? dest.icon);
+  /// Resolves the icon widget for [dest] according to priority:
+  /// 1. [AdaptiveDestination.iconBuilder] (highest)
+  /// 2. [AdaptiveDestination.selectedIconWidget] / [iconWidget]
+  /// 3. [AdaptiveDestination.selectedIcon] / [icon] wrapped in [Icon]
+  Widget _resolveIcon(
+      BuildContext context, AdaptiveDestination dest, bool isSelected) {
+    Widget icon;
+    if (dest.iconBuilder != null) {
+      icon = dest.iconBuilder!(context, isSelected);
+    } else if (isSelected) {
+      icon = dest.selectedIconWidget ??
+          dest.iconWidget ??
+          Icon(dest.selectedIcon ?? dest.icon!);
+    } else {
+      icon = dest.iconWidget ?? Icon(dest.icon!);
+    }
+    if (dest.iconSize != null) {
+      icon = SizedBox(
+          width: dest.iconSize, height: dest.iconSize, child: icon);
+    }
+    return icon;
+  }
 
-    if (dest.badge > 0) {
+  NavigationDestination _toNavDestination(
+      BuildContext context, AdaptiveDestination dest) {
+    Widget icon = _resolveIcon(context, dest, false);
+    Widget selectedIcon = _resolveIcon(context, dest, true);
+
+    // Badge — label string takes priority over int count.
+    if (dest.badgeLabel != null) {
+      final label = dest.badgeLabel!.isEmpty ? null : Text(dest.badgeLabel!);
+      icon = Badge(label: label, child: icon);
+      selectedIcon = Badge(label: label, child: selectedIcon);
+    } else if (dest.badge > 0) {
       icon = Badge.count(count: dest.badge, child: icon);
       selectedIcon = Badge.count(count: dest.badge, child: selectedIcon);
     }
@@ -589,6 +825,8 @@ class _CompactLayout extends StatelessWidget {
       icon: icon,
       selectedIcon: selectedIcon,
       label: dest.label,
+      tooltip: dest.tooltip,
+      enabled: dest.enabled,
     );
   }
 }
@@ -620,6 +858,48 @@ class _WideLayout extends StatelessWidget {
     final hasPlaceholder = shell.emptyDetailPlaceholder != null;
     final showSecondPane = hasChild2 || hasPlaceholder;
     final bool effectiveExtended = !isRailCollapsed && extended;
+    final t = shell.theme;
+
+    // ── Build the navigation rail (or custom builder) ──────────────────
+    Widget navContent;
+    if (shell.navigationRailBuilder != null) {
+      navContent = shell.navigationRailBuilder!(
+        context,
+        shell.destinations,
+        shell.selectedIndex,
+        shell.onDestinationSelected,
+        effectiveExtended,
+      );
+    } else {
+      navContent = _buildRail(context, effectiveExtended);
+    }
+
+    // ── Wrap rail in collapse toggle + optional decoration ─────────────
+    Widget navColumn = Column(
+      children: [
+        if (onToggleRailCollapse != null)
+          IconButton(
+            icon: Icon(
+              isRailCollapsed ? Icons.chevron_right : Icons.chevron_left,
+              size: 20,
+            ),
+            tooltip: isRailCollapsed
+                ? 'Expand navigation'
+                : 'Collapse navigation',
+            onPressed: onToggleRailCollapse,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minHeight: 36),
+          ),
+        Expanded(child: navContent),
+      ],
+    );
+
+    if (t?.railDecoration != null) {
+      navColumn = DecoratedBox(
+        decoration: t!.railDecoration!,
+        child: navColumn,
+      );
+    }
 
     return Scaffold(
       appBar: shell.appBar,
@@ -627,114 +907,26 @@ class _WideLayout extends StatelessWidget {
       floatingActionButtonLocation: shell.floatingActionButtonLocation,
       body: Row(
         children: [
-          // ─── Navigation column ───────────────────────────────────────
-          // The collapse toggle lives OUTSIDE the NavigationRail so its
-          // height is never added to the rail's internal Column. Putting
-          // it inside NavigationRail.leading caused a RenderFlex overflow
-          // on screens where (toggle height + destinations height) exceeded
-          // the available viewport height.
-          Column(
-            children: [
-              if (onToggleRailCollapse != null)
-                IconButton(
-                  icon: Icon(
-                    isRailCollapsed
-                        ? Icons.chevron_right
-                        : Icons.chevron_left,
-                    size: 20,
-                  ),
-                  tooltip: isRailCollapsed
-                      ? 'Expand navigation'
-                      : 'Collapse navigation',
-                  onPressed: onToggleRailCollapse,
-                  padding: EdgeInsets.zero,
-                  // Keep the touch target compact so it doesn't eat into
-                  // the rail's destination area on small screens.
-                  constraints: const BoxConstraints(minHeight: 36),
-                ),
-              // When the collapsible toggle is shown it steals height from
-              // the NavigationRail, which can push the rail's internal
-              // RenderFlex past its bounds on shorter screens.
-              // Fix: only wrap in a scrollable when the toggle is present.
-              // LayoutBuilder measures the remaining height; then
-              // SingleChildScrollView + ConstrainedBox(minHeight) +
-              // IntrinsicHeight let the rail scroll when destinations
-              // overflow while still centering them when they fit.
-              // When railCollapsible is OFF the original Expanded(rail) path
-              // is used so no extra ClipRect is injected into the tree.
-              Expanded(
-                child: onToggleRailCollapse != null
-                    ? LayoutBuilder(
-                        builder: (context, railConstraints) {
-                          return SingleChildScrollView(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: railConstraints.maxHeight,
-                              ),
-                              child: IntrinsicHeight(
-                                child: NavigationRail(
-                                  selectedIndex: shell.selectedIndex,
-                                  onDestinationSelected:
-                                      shell.onDestinationSelected,
-                                  extended: effectiveExtended,
-                                  leading: shell.railLeading,
-                                  trailing: shell.railTrailing,
-                                  backgroundColor: shell.railBackgroundColor,
-                                  labelType: isRailCollapsed
-                                      ? NavigationRailLabelType.none
-                                      : (effectiveExtended
-                                          ? NavigationRailLabelType.none
-                                          : NavigationRailLabelType.all),
-                                  destinations: shell.destinations
-                                      .map(_toRailDestination)
-                                      .toList(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : NavigationRail(
-                        selectedIndex: shell.selectedIndex,
-                        onDestinationSelected: shell.onDestinationSelected,
-                        extended: effectiveExtended,
-                        leading: shell.railLeading,
-                        trailing: shell.railTrailing,
-                        backgroundColor: shell.railBackgroundColor,
-                        labelType: isRailCollapsed
-                            ? NavigationRailLabelType.none
-                            : (effectiveExtended
-                                ? NavigationRailLabelType.none
-                                : NavigationRailLabelType.all),
-                        destinations: shell.destinations
-                            .map(_toRailDestination)
-                            .toList(),
-                      ),
-              ),
-            ],
-          ),
-
+          navColumn,
           const VerticalDivider(width: 1, thickness: 1),
 
           // ─── child1 (master pane) ───
           if (showSecondPane)
-            SizedBox(
-              width: _computeMasterWidth(),
-              child: child1,
-            )
+            SizedBox(width: _computeMasterWidth(), child: child1)
           else
             Expanded(child: child1),
 
           // ─── Divider between panes ───
           if (showSecondPane && shell.showPaneDivider)
-            shell.paneDivider ?? const VerticalDivider(width: 1, thickness: 1),
+            shell.paneDivider ??
+                const VerticalDivider(width: 1, thickness: 1),
 
           // ─── child2 or placeholder (detail pane) ───
           if (hasChild2)
             Expanded(
               child: Align(
                 alignment: shell.detailAlignment,
-                  child: AnimatedSwitcher(
+                child: AnimatedSwitcher(
                   key: const ValueKey('_detail_pane_switcher'),
                   duration: shell.transitionDuration,
                   switchInCurve: shell.transitionCurve ?? Curves.easeInOut,
@@ -752,14 +944,6 @@ class _WideLayout extends StatelessWidget {
                       ],
                     );
                   },
-                  // Use child2 directly so AnimatedSwitcher relies on its
-                  // own key (e.g. ValueKey(itemId) from AdaptiveMasterDetail)
-                  // to decide when to animate.  The old
-                  // KeyedSubtree(key: ValueKey(child2.hashCode)) wrapper was
-                  // wrong on two counts: hashCode changed every frame
-                  // (triggering animation on every build), and it placed a
-                  // GlobalKey inside AnimatedSwitcher's transition pool,
-                  // causing the "Duplicate GlobalKey" crash.
                   child: child2!,
                 ),
               ),
@@ -771,8 +955,75 @@ class _WideLayout extends StatelessWidget {
     );
   }
 
-  /// Slide + fade transition used when [AdaptiveShell.enableHeroAnimations]
-  /// is `true`. The incoming child slides in from the right while fading in.
+  /// Builds the [NavigationRail] widget, wrapped in a [SingleChildScrollView]
+  /// when the collapse toggle is present (to prevent overflow on short screens).
+  Widget _buildRail(BuildContext context, bool effectiveExtended) {
+    final t = shell.theme;
+    final effectiveMinWidth = t?.railMinWidth ?? 72.0;
+    final effectiveMinExtendedWidth = t?.railMinExtendedWidth ?? 160.0;
+
+    // Label type resolution:
+    //   • extended=true  → must be none (Flutter assertion; labels shown inline)
+    //   • collapsed      → none (icons only)
+    //   • theme override → use it (only valid when !extended)
+    //   • auto           → all (labels below icons on medium)
+    final NavigationRailLabelType labelType;
+    if (effectiveExtended) {
+      labelType = NavigationRailLabelType.none;
+    } else if (isRailCollapsed) {
+      labelType = NavigationRailLabelType.none;
+    } else if (t?.railLabelType != null) {
+      labelType = t!.railLabelType!;
+    } else {
+      labelType = NavigationRailLabelType.all;
+    }
+
+    final rail = NavigationRail(
+      selectedIndex: shell.selectedIndex,
+      // Guard disabled destinations — NavigationRail has no native enabled prop.
+      onDestinationSelected: (index) {
+        if (!shell.destinations[index].enabled) return;
+        shell.onDestinationSelected(index);
+      },
+      extended: effectiveExtended,
+      leading: shell.railLeading,
+      trailing: shell.railTrailing,
+      backgroundColor: t?.railBackgroundColor ?? shell.railBackgroundColor,
+      labelType: labelType,
+      minWidth: effectiveMinWidth,
+      minExtendedWidth: effectiveMinExtendedWidth,
+      elevation: t?.railElevation,
+      groupAlignment: t?.railGroupAlignment,
+      indicatorColor: t?.railIndicatorColor,
+      indicatorShape: t?.railIndicatorShape,
+      selectedIconTheme: t?.railSelectedIconTheme,
+      unselectedIconTheme: t?.railUnselectedIconTheme,
+      selectedLabelTextStyle: t?.railSelectedLabelStyle,
+      unselectedLabelTextStyle: t?.railUnselectedLabelStyle,
+      destinations: shell.destinations
+          .map((d) => _toRailDestination(context, d))
+          .toList(),
+    );
+
+    // When the toggle is present, wrap in a scrollable so destinations
+    // don't overflow on short screens (same fix as v1.1.0).
+    if (onToggleRailCollapse != null) {
+      return LayoutBuilder(
+        builder: (context, railConstraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints:
+                  BoxConstraints(minHeight: railConstraints.maxHeight),
+              child: IntrinsicHeight(child: rail),
+            ),
+          );
+        },
+      );
+    }
+    return rail;
+  }
+
+  /// Slide + fade transition for [AdaptiveShell.enableHeroAnimations].
   Widget _heroTransitionBuilder(Widget child, Animation<double> animation) {
     final curve = shell.transitionCurve ?? Curves.easeInOut;
     final curved = CurvedAnimation(parent: animation, curve: curve);
@@ -786,20 +1037,57 @@ class _WideLayout extends StatelessWidget {
   }
 
   double _computeMasterWidth() {
-    // Subtract approx rail width to compute available content width.
     final bool effectiveExtended = !isRailCollapsed && extended;
-    final railWidth = effectiveExtended ? 256.0 : 80.0;
+    final t = shell.theme;
+    final railWidth = effectiveExtended
+        ? (t?.railMinExtendedWidth ?? 160.0)
+        : (t?.railMinWidth ?? 72.0);
     final contentWidth = totalWidth - railWidth - 2; // 2 for dividers
     final masterWidth = contentWidth * shell.breakpoints.masterRatio;
     return masterWidth.clamp(200.0, contentWidth * 0.5);
   }
 
+  /// Resolves the icon widget for [dest]:
+  /// 1. [AdaptiveDestination.iconBuilder]
+  /// 2. [selectedIconWidget] / [iconWidget]
+  /// 3. [selectedIcon] / [icon] wrapped in [Icon]
+  Widget _resolveIcon(
+      BuildContext context, AdaptiveDestination dest, bool isSelected) {
+    Widget icon;
+    if (dest.iconBuilder != null) {
+      icon = dest.iconBuilder!(context, isSelected);
+    } else if (isSelected) {
+      icon = dest.selectedIconWidget ??
+          dest.iconWidget ??
+          Icon(dest.selectedIcon ?? dest.icon!);
+    } else {
+      icon = dest.iconWidget ?? Icon(dest.icon!);
+    }
+    if (dest.iconSize != null) {
+      icon = SizedBox(
+          width: dest.iconSize, height: dest.iconSize, child: icon);
+    }
+    return icon;
+  }
 
-  NavigationRailDestination _toRailDestination(AdaptiveDestination dest) {
-    Widget icon = Icon(dest.icon);
-    Widget selectedIcon = Icon(dest.selectedIcon ?? dest.icon);
+  NavigationRailDestination _toRailDestination(
+      BuildContext context, AdaptiveDestination dest) {
+    Widget icon = _resolveIcon(context, dest, false);
+    Widget selectedIcon = _resolveIcon(context, dest, true);
 
-    if (dest.badge > 0) {
+    // Disabled: dim the icon. Tap guard is on NavigationRail.onDestinationSelected.
+    if (!dest.enabled) {
+      final opacity = shell.theme?.disabledOpacity ?? 0.38;
+      icon = Opacity(opacity: opacity, child: icon);
+      selectedIcon = Opacity(opacity: opacity, child: selectedIcon);
+    }
+
+    // Badge — label string takes priority over int count.
+    if (dest.badgeLabel != null) {
+      final label = dest.badgeLabel!.isEmpty ? null : Text(dest.badgeLabel!);
+      icon = Badge(label: label, child: icon);
+      selectedIcon = Badge(label: label, child: selectedIcon);
+    } else if (dest.badge > 0) {
       icon = Badge.count(count: dest.badge, child: icon);
       selectedIcon = Badge.count(count: dest.badge, child: selectedIcon);
     }

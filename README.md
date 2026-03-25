@@ -38,8 +38,14 @@ Building adaptive layouts in Flutter typically requires hundreds of lines of boi
 - **Layout change callback** — `onLayoutModeChanged` fires when the layout transitions, useful for analytics or state management
 - **Debug overlay** — `debugShowLayoutMode: true` shows a live overlay with current mode, breakpoints, and auto-scale factor during development
 - **Material 3 compliant** — follows M3 window size classes (compact / medium / expanded)
-- **Badge support** — navigation destinations support notification counts
+- **Badge support** — navigation destinations support notification counts, dot badges, and text badges (`"NEW"`, `"99+"`)
 - **All platforms** — Android, iOS, web, macOS, Windows, Linux
+- **`AdaptiveShellTheme`** *(v2.0)* — single `const`-able class to style every pixel of both `NavigationBar` and `NavigationRail`: colors, sizes, indicator shapes, label styles, rail decoration, and more
+- **`AdaptiveShellController`** *(v2.0)* — programmatically collapse/expand the rail from anywhere (AppBar action, FAB, drawer) without prop-drilling
+- **Widget icons** *(v2.0)* — `AdaptiveDestination` now accepts `iconWidget` (SVG/PNG), `selectedIconWidget`, and `iconBuilder` alongside the classic `icon: IconData` — fully backward compatible
+- **Custom nav builders** *(v2.0)* — `navigationBarBuilder` / `navigationRailBuilder` replace the default nav chrome with any widget
+- **Destination extras** *(v2.0)* — `enabled`, `tooltip`, `badgeLabel`, `iconSize` on `AdaptiveDestination`
+- **Tight desktop rail** *(v2.0)* — `railMinExtendedWidth` defaults to `160 dp` (was Flutter's 256) — no more rail eating a third of the screen
 
 ## Layout behavior
 
@@ -62,7 +68,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  adaptive_shell: ^1.1.0
+  adaptive_shell: ^2.0.0
 ```
 
 ## Usage
@@ -316,6 +322,252 @@ final widget  = context.adaptiveValue<Widget>(
 );
 ```
 
+---
+
+## v2.0.0 Features
+
+### `AdaptiveShellTheme` — full navigation theming (v2.0) 🎨
+
+A single `const`-able class that controls every visual aspect of both the
+`NavigationBar` (compact) and the `NavigationRail` (medium/expanded).
+Supports `copyWith` and `lerp`.
+
+```dart
+AdaptiveShell(
+  theme: const AdaptiveShellTheme(
+    // ── Rail ──────────────────────────────────────────────
+    railMinWidth: 72,
+    railMinExtendedWidth: 180,           // default 160; increase for long labels
+    railBackgroundColor: Color(0xFFF8F9FA),
+    railElevation: 0,
+    railGroupAlignment: -1.0,            // -1 = top, 0 = center, 1 = bottom
+    railIndicatorColor: Color(0xFFD0BCFF),
+    railIndicatorShape: StadiumBorder(),
+    railSelectedIconTheme: IconThemeData(color: Color(0xFF6750A4)),
+    railUnselectedIconTheme: IconThemeData(color: Colors.grey),
+    railSelectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
+    railLabelType: NavigationRailLabelType.all, // override auto behaviour
+    railDecoration: BoxDecoration(
+      border: Border(right: BorderSide(color: Color(0xFFE0E0E0))),
+    ),
+    // ── Nav bar ───────────────────────────────────────────
+    navBarHeight: 72,
+    navBarBackgroundColor: Colors.white,
+    navBarElevation: 2,
+    navBarShadowColor: Colors.black12,
+    navBarIndicatorColor: Color(0xFFD0BCFF),
+    navBarIndicatorShape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(16)),
+    ),
+    navBarLabelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+    navBarSelectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
+    // ── Disabled destinations ─────────────────────────────
+    disabledOpacity: 0.38,               // Material 3 default
+  ),
+  // ...
+)
+```
+
+| Field | Default | Notes |
+|---|---|---|
+| `railMinWidth` | `72.0` | Icon-only rail width |
+| `railMinExtendedWidth` | `160.0` | Extended rail width (was Flutter's 256) |
+| `railBackgroundColor` | null | Falls back to `ThemeData` |
+| `railElevation` | null | |
+| `railGroupAlignment` | null | `-1.0` = top |
+| `railIndicatorColor` | null | Selection pill color |
+| `railIndicatorShape` | null | Selection pill shape |
+| `railSelectedIconTheme` | null | |
+| `railUnselectedIconTheme` | null | |
+| `railSelectedLabelStyle` | null | |
+| `railUnselectedLabelStyle` | null | |
+| `railLabelType` | null | Auto from layout mode when null |
+| `railDecoration` | null | `BoxDecoration` on the rail column |
+| `navBarHeight` | null | |
+| `navBarBackgroundColor` | null | |
+| `navBarElevation` | null | |
+| `navBarShadowColor` | null | |
+| `navBarSurfaceTintColor` | null | |
+| `navBarIndicatorColor` | null | |
+| `navBarIndicatorShape` | null | |
+| `navBarLabelBehavior` | null | |
+| `navBarSelectedIconTheme` | null | |
+| `navBarUnselectedIconTheme` | null | |
+| `navBarSelectedLabelStyle` | null | |
+| `navBarUnselectedLabelStyle` | null | |
+| `disabledOpacity` | `0.38` | Rail disabled icon opacity |
+
+---
+
+### `AdaptiveShellController` — programmatic rail control (v2.0) 🎛️
+
+Collapse or expand the navigation rail from anywhere in the tree — an
+`AppBar` action, a `FloatingActionButton`, a settings toggle — without
+prop-drilling.
+
+```dart
+class _MyState extends State<MyScreen> {
+  final _nav = AdaptiveShellController();   // create
+
+  @override
+  void dispose() {
+    _nav.dispose();   // you own the lifecycle
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdaptiveShell(
+      controller: _nav,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: _nav.toggleRail,      // collapse / expand
+        ),
+      ),
+      // ...
+    );
+  }
+}
+```
+
+| Method / Property | Description |
+|---|---|
+| `collapseRail()` | Collapses to icon-only |
+| `expandRail()` | Expands to labeled |
+| `toggleRail()` | Toggles between states |
+| `isRailCollapsed` | Current state (readable) |
+
+> **Note:** The controller only manages rail collapse state. The selected
+> navigation index is still driven by `AdaptiveShell.selectedIndex` and
+> `onDestinationSelected` in your own `setState` — there is no double-update risk.
+
+---
+
+### Widget icons for `AdaptiveDestination` (v2.0) 🖼️
+
+`icon: IconData` is now optional. Use `iconWidget`, `selectedIconWidget`,
+or `iconBuilder` for SVG, PNG, or any custom widget.
+
+> **All existing v1.x code compiles unchanged** — `icon: Icons.home` still works exactly as before.
+
+```dart
+// ── Classic — unchanged from v1.x ───────────────────────
+const AdaptiveDestination(
+  icon: Icons.home_outlined,
+  selectedIcon: Icons.home,
+  label: 'Home',
+  badge: 2,
+)
+
+// ── Static SVG / PNG pair ────────────────────────────────
+AdaptiveDestination(
+  iconWidget: SvgPicture.asset(
+    'assets/home.svg',
+    width: 24, height: 24,
+    colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+  ),
+  selectedIconWidget: SvgPicture.asset(
+    'assets/home_filled.svg',
+    width: 24, height: 24,
+  ),
+  label: 'Home',
+  iconSize: 24,   // wraps in SizedBox — consistent layout dimensions
+)
+
+// ── Builder — theme-driven color (recommended for SVG/PNG) ─
+AdaptiveDestination(
+  iconBuilder: (context, isSelected) => SvgPicture.asset(
+    'assets/home.svg',
+    width: 24, height: 24,
+    colorFilter: ColorFilter.mode(
+      isSelected
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurfaceVariant,
+      BlendMode.srcIn,
+    ),
+  ),
+  label: 'Home',
+)
+
+// ── Disabled destination ─────────────────────────────────
+const AdaptiveDestination(
+  icon: Icons.lock_outline,
+  label: 'Admin',
+  enabled: false,       // dimmed + non-tappable
+)
+
+// ── Flexible badge ───────────────────────────────────────
+const AdaptiveDestination(
+  icon: Icons.notifications_outlined,
+  label: 'Alerts',
+  badgeLabel: 'NEW',    // or '' for dot, '99+' for overflow
+)
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `icon` | `IconData?` | Classic — now optional (was required) |
+| `selectedIcon` | `IconData?` | Classic selected icon |
+| `iconWidget` | `Widget?` | Custom unselected widget |
+| `selectedIconWidget` | `Widget?` | Custom selected widget (falls back to `iconWidget`) |
+| `iconBuilder` | `AdaptiveIconBuilder?` | `Widget Function(BuildContext, bool isSelected)` — highest priority |
+| `iconSize` | `double?` | Wraps resolved icon in `SizedBox(w, h)` |
+| `label` | `String` | Required |
+| `badge` | `int` | Count badge (ignored when `badgeLabel` set) |
+| `badgeLabel` | `String?` | Text badge: `""` = dot, `"NEW"`, `"99+"` |
+| `tooltip` | `String?` | Hover tooltip (defaults to label) |
+| `enabled` | `bool` | Default `true`; `false` = dimmed + non-tappable |
+
+> **SVG/PNG sizing note:** Unlike `Icon`, custom widgets don't inherit
+> `IconTheme` size automatically. Set `iconSize: 24` or size your widget
+> explicitly to keep nav layout consistent.
+
+> **SVG/PNG color note:** Custom widgets don't get auto-tinted by
+> `selectedIconTheme`. Use `iconBuilder` to apply `colorFilter` dynamically,
+> or provide two pre-colored `iconWidget` / `selectedIconWidget` assets.
+
+---
+
+### Custom nav builders (v2.0) 🏗️
+
+Replace the entire `NavigationBar` or `NavigationRail` with any widget:
+
+```dart
+AdaptiveShell(
+  navigationBarBuilder: (context, destinations, selectedIndex, onSelected) {
+    return Container(
+      color: Colors.deepPurple,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          for (int i = 0; i < destinations.length; i++)
+            IconButton(
+              icon: Icon(destinations[i].icon),
+              color: i == selectedIndex ? Colors.white : Colors.white54,
+              onPressed: () => onSelected(i),
+            ),
+        ],
+      ),
+    );
+  },
+  navigationRailBuilder: (context, destinations, selectedIndex, onSelected, isExtended) {
+    return MyCustomSidebar(
+      destinations: destinations,
+      selectedIndex: selectedIndex,
+      onTap: onSelected,
+      showLabels: isExtended,
+    );
+  },
+  // ...
+)
+```
+
+> When a builder is set, `AdaptiveShellTheme` rail/bar fields are ignored for
+> that nav element — the builder owns all styling.
+
+---
+
 ### Custom breakpoints
 
 ```dart
@@ -384,6 +636,10 @@ AdaptiveShell(
 | `railCollapsible` | `bool` | `false` | Adds a chevron toggle to collapse the rail  |
 | `railCollapseOnMedium` | `bool` | `false` | Auto-collapses rail when entering medium mode  |
 | `keyboardShortcuts` | `Map<ShortcutActivator, int>?` | `null` | Shortcut → destination index map (tablet/desktop)  |
+| `theme` | `AdaptiveShellTheme?` | `null` | Full visual theme for rail + bar *(v2.0)* |
+| `controller` | `AdaptiveShellController?` | `null` | Programmatic rail collapse/expand *(v2.0)* |
+| `navigationBarBuilder` | `AdaptiveNavBarBuilder?` | `null` | Custom compact nav widget *(v2.0)* |
+| `navigationRailBuilder` | `AdaptiveNavRailBuilder?` | `null` | Custom wide nav widget *(v2.0)* |
 
 ### AdaptiveMasterDetail
 
